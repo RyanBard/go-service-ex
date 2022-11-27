@@ -5,6 +5,7 @@ import (
 	"github.com/RyanBard/gin-ex/internal/pkg/mdlw"
 	"github.com/RyanBard/gin-ex/internal/pkg/org"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
 	"net/http"
 )
@@ -13,9 +14,10 @@ func main() {
 	port := 4000
 	log := logrus.StandardLogger()
 	log.SetLevel(logrus.DebugLevel)
+	validate := validator.New()
 	orgDAO := org.NewOrgDAO(log)
 	orgService := org.NewOrgService(log, orgDAO)
-	orgCtrl := org.NewOrgController(log, orgService)
+	orgCtrl := org.NewOrgController(log, validate, orgService)
 	log.WithField("ctrl", orgCtrl).Info("Here")
 
 	r := gin.New()

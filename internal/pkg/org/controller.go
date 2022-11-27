@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
@@ -17,14 +18,16 @@ type OrgService interface {
 }
 
 type ctrl struct {
-	log     logrus.FieldLogger
-	service OrgService
+	log      logrus.FieldLogger
+	validate *validator.Validate
+	service  OrgService
 }
 
-func NewOrgController(log logrus.FieldLogger, service OrgService) *ctrl {
+func NewOrgController(log logrus.FieldLogger, validate *validator.Validate, service OrgService) *ctrl {
 	return &ctrl{
-		log:     log.WithField("SVC", "OrgCTL"),
-		service: service,
+		log:      log.WithField("SVC", "OrgCTL"),
+		validate: validate,
+		service:  service,
 	}
 }
 
@@ -87,7 +90,11 @@ func (ctr ctrl) Save(c *gin.Context) {
 	if pathID != "" {
 		o.ID = pathID
 	}
-	// TODO - validate
+	if err = ctr.validate.Struct(o); err != nil {
+		log.WithError(err).Error("Invalid org body")
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
 	log = ctr.log.WithFields(logrus.Fields{
 		"org": o,
 	})

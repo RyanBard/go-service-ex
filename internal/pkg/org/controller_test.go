@@ -3,6 +3,7 @@ package org
 import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"io"
@@ -56,7 +57,7 @@ func TestCTRLGetByID(t *testing.T) {
 
 	d := NewOrgDAO(logrus.StandardLogger())
 	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), s)
+	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
 	gc, w, err := ginCtx("/")
 	assert.Nil(t, err)
 
@@ -93,7 +94,7 @@ func TestCTRLGetAll(t *testing.T) {
 
 	d := NewOrgDAO(logrus.StandardLogger())
 	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), s)
+	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
 	gc, w, err := ginCtx("/")
 	assert.Nil(t, err)
 
@@ -122,7 +123,7 @@ func TestCTRLGetAll_NameSpecified(t *testing.T) {
 
 	d := NewOrgDAO(logrus.StandardLogger())
 	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), s)
+	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
 	gc, w, err := ginCtx("/?name=" + name)
 	assert.Nil(t, err)
 
@@ -169,7 +170,7 @@ func TestCTRLSave(t *testing.T) {
 
 	d := NewOrgDAO(logrus.StandardLogger())
 	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), s)
+	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
 	gc, w, err := ginCtxWithBody("/", o)
 	assert.Nil(t, err)
 
@@ -204,7 +205,7 @@ func TestCTRLSave_PathID(t *testing.T) {
 
 	d := NewOrgDAO(logrus.StandardLogger())
 	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), s)
+	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
 	gc, w, err := ginCtxWithBody("/", o)
 	assert.Nil(t, err)
 
@@ -240,7 +241,7 @@ func TestCTRLSave_UnmarshalError(t *testing.T) {
 	malformedBody := "{"
 	d := NewOrgDAO(logrus.StandardLogger())
 	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), s)
+	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
 	gc, w, err := ginCtxWithStrBody("/", &malformedBody)
 	assert.Nil(t, err)
 
@@ -256,6 +257,82 @@ func TestCTRLSave_UnmarshalError(t *testing.T) {
 	assert.Equal(t, "unexpected end of JSON input", actual["message"])
 }
 
+func TestCTRLSave_ValidationError_MissingName(t *testing.T) {
+	o := Org{
+		Name: "",
+		Desc: "foo-desc",
+	}
+	d := NewOrgDAO(logrus.StandardLogger())
+	s := NewOrgService(logrus.StandardLogger(), d)
+	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
+	gc, w, err := ginCtxWithBody("/", o)
+	assert.Nil(t, err)
+
+	c.Save(gc)
+	res := w.Result()
+	bytes, err := io.ReadAll(res.Body)
+	assert.Nil(t, err)
+	var actual map[string]string
+	err = json.Unmarshal(bytes, &actual)
+	assert.Nil(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, 400, gc.Writer.Status())
+	errMsg := actual["message"]
+	assert.Contains(t, errMsg, "required")
+	assert.Contains(t, errMsg, "Name")
+}
+
+func TestCTRLSave_ValidationError_MissingDesc(t *testing.T) {
+	o := Org{
+		Name: "foo-name",
+		Desc: "",
+	}
+	d := NewOrgDAO(logrus.StandardLogger())
+	s := NewOrgService(logrus.StandardLogger(), d)
+	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
+	gc, w, err := ginCtxWithBody("/", o)
+	assert.Nil(t, err)
+
+	c.Save(gc)
+	res := w.Result()
+	bytes, err := io.ReadAll(res.Body)
+	assert.Nil(t, err)
+	var actual map[string]string
+	err = json.Unmarshal(bytes, &actual)
+	assert.Nil(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, 400, gc.Writer.Status())
+	errMsg := actual["message"]
+	assert.Contains(t, errMsg, "required")
+	assert.Contains(t, errMsg, "Desc")
+}
+
+func TestCTRLSave_ValidationError_MissingNameAndDesc(t *testing.T) {
+	o := Org{
+		Name: "",
+		Desc: "",
+	}
+	d := NewOrgDAO(logrus.StandardLogger())
+	s := NewOrgService(logrus.StandardLogger(), d)
+	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
+	gc, w, err := ginCtxWithBody("/", o)
+	assert.Nil(t, err)
+
+	c.Save(gc)
+	res := w.Result()
+	bytes, err := io.ReadAll(res.Body)
+	assert.Nil(t, err)
+	var actual map[string]string
+	err = json.Unmarshal(bytes, &actual)
+	assert.Nil(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, 400, gc.Writer.Status())
+	errMsg := actual["message"]
+	assert.Contains(t, errMsg, "required")
+	assert.Contains(t, errMsg, "Name")
+	assert.Contains(t, errMsg, "Desc")
+}
+
 func TestCTRLSave_ServiceError(t *testing.T) {
 	// TODO
 }
@@ -265,7 +342,7 @@ func TestCTRLDelete(t *testing.T) {
 
 	d := NewOrgDAO(logrus.StandardLogger())
 	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), s)
+	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
 	gc, _, err := ginCtx("/")
 	assert.Nil(t, err)
 
