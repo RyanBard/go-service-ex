@@ -1,0 +1,47 @@
+package main
+
+import (
+	"fmt"
+	"github.com/RyanBard/gin-ex/internal/pkg/mdlw"
+	"github.com/RyanBard/gin-ex/internal/pkg/org"
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
+	"net/http"
+)
+
+func main() {
+	port := 4000
+	log := logrus.StandardLogger()
+	log.SetLevel(logrus.DebugLevel)
+	orgDAO := org.NewOrgDAO(log)
+	orgService := org.NewOrgService(log, orgDAO)
+	orgCtrl := org.NewOrgController(log, orgService)
+	log.WithField("ctrl", orgCtrl).Info("Here")
+
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(mdlw.ReqID(log))
+
+	r.GET("/health", func(c *gin.Context) {
+		log.WithField("reqID", c.Request.Context().Value("reqID")).Debug("Health called")
+		c.Status(http.StatusNoContent)
+	})
+
+	r.GET("/readiness", func(c *gin.Context) {
+		log.WithField("reqID", c.Request.Context().Value("reqID")).Debug("Readiness called")
+		c.Status(http.StatusNoContent)
+	})
+
+	authorized := r.Group("/api")
+	authorized.Use(mdlw.Auth(log))
+
+	authorized.GET("/orgs/:id", orgCtrl.GetByID)
+	authorized.GET("/orgs", orgCtrl.GetAll)
+	authorized.POST("/orgs", orgCtrl.Save)
+	authorized.PUT("/orgs", orgCtrl.Save)
+	authorized.POST("/orgs/:id", orgCtrl.Save)
+	authorized.PUT("/orgs/:id", orgCtrl.Save)
+	authorized.DELETE("/orgs/:id", orgCtrl.Delete)
+
+	r.Run(fmt.Sprintf(":%v", port))
+}
