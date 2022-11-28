@@ -8,9 +8,16 @@ import (
 	"time"
 )
 
+func initDAO() (d *dao) {
+	log := logrus.StandardLogger()
+	log.SetLevel(logrus.PanicLevel)
+	d = NewOrgDAO(log)
+	return d
+}
+
 func TestDAOGetByID(t *testing.T) {
 	now := time.Now().UnixMilli()
-	d := NewOrgDAO(logrus.StandardLogger())
+	d := initDAO()
 	ctx := context.Background()
 	id := "foo"
 	actual, err := d.GetByID(ctx, id)
@@ -25,7 +32,7 @@ func TestDAOGetByID(t *testing.T) {
 
 func TestDAOGetAll(t *testing.T) {
 	now := time.Now().UnixMilli()
-	d := NewOrgDAO(logrus.StandardLogger())
+	d := initDAO()
 	ctx := context.Background()
 	actuals, err := d.GetAll(ctx)
 	assert.Nil(t, err)
@@ -42,7 +49,7 @@ func TestDAOGetAll(t *testing.T) {
 func TestDAOSearchByName(t *testing.T) {
 	now := time.Now().UnixMilli()
 	name := "foo"
-	d := NewOrgDAO(logrus.StandardLogger())
+	d := initDAO()
 	ctx := context.Background()
 	actuals, err := d.SearchByName(ctx, name)
 	assert.Nil(t, err)
@@ -58,7 +65,7 @@ func TestDAOSearchByName(t *testing.T) {
 
 func TestDAOCreate(t *testing.T) {
 	now := time.Now().UnixMilli()
-	d := NewOrgDAO(logrus.StandardLogger())
+	d := initDAO()
 	ctx := context.Background()
 	o := Org{
 		ID:         "foo-id",
@@ -80,7 +87,7 @@ func TestDAOCreate(t *testing.T) {
 
 func TestDAOUpdate(t *testing.T) {
 	now := time.Now().UnixMilli()
-	d := NewOrgDAO(logrus.StandardLogger())
+	d := initDAO()
 	ctx := context.Background()
 	o := Org{
 		ID:         "foo-id",
@@ -101,7 +108,7 @@ func TestDAOUpdate(t *testing.T) {
 }
 
 func TestDAODelete(t *testing.T) {
-	d := NewOrgDAO(logrus.StandardLogger())
+	d := initDAO()
 	ctx := context.Background()
 	id := "foo"
 	err := d.Delete(ctx, id)

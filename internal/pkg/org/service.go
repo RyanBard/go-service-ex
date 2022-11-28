@@ -2,9 +2,7 @@ package org
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 type OrgDAO interface {
@@ -16,15 +14,27 @@ type OrgDAO interface {
 	Delete(ctx context.Context, id string) error
 }
 
-type service struct {
-	log logrus.FieldLogger
-	dao OrgDAO
+type Timer interface {
+	Now() int64
 }
 
-func NewOrgService(log logrus.FieldLogger, dao OrgDAO) *service {
+type IDGenerator interface {
+	GenID() string
+}
+
+type service struct {
+	log   logrus.FieldLogger
+	dao   OrgDAO
+	timer Timer
+	idGen IDGenerator
+}
+
+func NewOrgService(log logrus.FieldLogger, dao OrgDAO, timer Timer, idGen IDGenerator) *service {
 	return &service{
-		log: log.WithField("SVC", "OrgSVC"),
-		dao: dao,
+		log:   log.WithField("SVC", "OrgSVC"),
+		dao:   dao,
+		timer: timer,
+		idGen: idGen,
 	}
 }
 
@@ -59,10 +69,10 @@ func (s service) Save(ctx context.Context, o Org) (Org, error) {
 		"org":   o,
 	})
 	log.Debug("called")
-	o.UpdatedAt = time.Now().UnixMilli()
+	o.UpdatedAt = s.timer.Now()
 	if o.ID == "" {
-		o.ID = uuid.New().String()
-		o.CreatedAt = time.Now().UnixMilli()
+		o.ID = s.idGen.GenID()
+		o.CreatedAt = s.timer.Now()
 		return s.dao.Create(ctx, o)
 	} else {
 		// TODO - look up previous org for validation and CreatedAt

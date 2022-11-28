@@ -1,18 +1,42 @@
 package org
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 )
+
+type mockSVC struct {
+	mock.Mock
+}
+
+// https://stackoverflow.com/questions/45126312/how-do-i-test-an-error-on-reading-from-a-request-body
+type errReader int
+
+const mockIOErrMsg = "unit-test mock io error"
+
+func (errReader) Read(p []byte) (int, error) {
+	return 0, errors.New(mockIOErrMsg)
+}
+
+func initCTRL() (c *ctrl, ms *mockSVC) {
+	log := logrus.StandardLogger()
+	log.SetLevel(logrus.PanicLevel)
+	v := validator.New()
+	ms = new(mockSVC)
+	c = NewOrgController(log, v, ms)
+	return c, ms
+}
 
 func ginCtx(url string) (*gin.Context, *httptest.ResponseRecorder, error) {
 	return ginCtxWithBody(url, nil)
@@ -51,13 +75,26 @@ func ginCtxWithStrBody(url string, body *string) (*gin.Context, *httptest.Respon
 	return gc, w, nil
 }
 
+func ginCtxWithIOErr(url string) (*gin.Context, *httptest.ResponseRecorder, error) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	gc, _ := gin.CreateTestContext(w)
+	u := url
+	if url == "" {
+		u = "/"
+	}
+	req, err := http.NewRequest("POST", u, errReader(0))
+	if err != nil {
+		return nil, w, err
+	}
+	gc.Request = req
+	return gc, w, nil
+}
+
 func TestCTRLGetByID(t *testing.T) {
 	id := "foo-id"
-	now := time.Now().UnixMilli()
 
-	d := NewOrgDAO(logrus.StandardLogger())
-	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
+	c, ms := initCTRL()
 	gc, w, err := ginCtx("/")
 	assert.Nil(t, err)
 
@@ -67,6 +104,16 @@ func TestCTRLGetByID(t *testing.T) {
 			Value: id,
 		},
 	}
+
+	mockRes := Org{
+		ID:         id,
+		Name:       "foo-name",
+		Desc:       "foo-desc",
+		IsArchived: true,
+		CreatedAt:  int64(100),
+		UpdatedAt:  int64(200),
+	}
+	ms.On("GetByID", mock.Anything, id).Return(mockRes, nil)
 
 	c.GetByID(gc)
 	res := w.Result()
@@ -77,53 +124,71 @@ func TestCTRLGetByID(t *testing.T) {
 	assert.Nil(t, err)
 	defer res.Body.Close()
 	assert.Equal(t, 200, gc.Writer.Status())
-	assert.Equal(t, id, actual.ID)
-	assert.Equal(t, "Foo Name", actual.Name)
-	assert.Equal(t, "Foo Desc", actual.Desc)
-	assert.Equal(t, false, actual.IsArchived)
-	assert.GreaterOrEqual(t, actual.CreatedAt, now)
-	assert.GreaterOrEqual(t, actual.UpdatedAt, now)
+	assert.Equal(t, mockRes, actual)
 }
 
 func TestCTRLGetByID_ServiceError(t *testing.T) {
-	// TODO
+	id := "foo-id"
+
+	c, ms := initCTRL()
+	gc, w, err := ginCtx("/")
+	assert.Nil(t, err)
+
+	gc.Params = []gin.Param{
+		{
+			Key:   "id",
+			Value: id,
+		},
+	}
+
+	mockErr := errors.New("unit-test mock service error")
+	ms.On("GetByID", mock.Anything, id).Return(Org{}, mockErr)
+
+	c.GetByID(gc)
+	res := w.Result()
+	bytes, err := io.ReadAll(res.Body)
+	assert.Nil(t, err)
+	var actual map[string]string
+	err = json.Unmarshal(bytes, &actual)
+	assert.Nil(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, 500, gc.Writer.Status())
+	assert.Equal(t, mockErr.Error(), actual["message"])
 }
 
 func TestCTRLGetAll(t *testing.T) {
-	now := time.Now().UnixMilli()
-
-	d := NewOrgDAO(logrus.StandardLogger())
-	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
+	c, ms := initCTRL()
 	gc, w, err := ginCtx("/")
 	assert.Nil(t, err)
+
+	mockRes := []Org{
+		{
+			ID:         "foo-id",
+			Name:       "foo-name",
+			Desc:       "foo-desc",
+			IsArchived: true,
+			CreatedAt:  int64(100),
+			UpdatedAt:  int64(200),
+		},
+	}
+	ms.On("GetAll", mock.Anything, "").Return(mockRes, nil)
 
 	c.GetAll(gc)
 	res := w.Result()
 	bytes, err := io.ReadAll(res.Body)
 	assert.Nil(t, err)
-	var actuals []Org
-	err = json.Unmarshal(bytes, &actuals)
+	var actual []Org
+	err = json.Unmarshal(bytes, &actual)
 	assert.Nil(t, err)
 	defer res.Body.Close()
-	assert.Equal(t, 1, len(actuals))
-	actual := actuals[0]
 	assert.Equal(t, 200, gc.Writer.Status())
-	assert.NotEqual(t, "", actual.ID)
-	assert.Equal(t, "Foo Name", actual.Name)
-	assert.Equal(t, "Foo Desc", actual.Desc)
-	assert.Equal(t, false, actual.IsArchived)
-	assert.GreaterOrEqual(t, actual.CreatedAt, now)
-	assert.GreaterOrEqual(t, actual.UpdatedAt, now)
+	assert.Equal(t, mockRes, actual)
 }
 
 func TestCTRLGetAll_NameSpecified(t *testing.T) {
 	name := "foo-name"
-	now := time.Now().UnixMilli()
 
-	d := NewOrgDAO(logrus.StandardLogger())
-	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
+	c, ms := initCTRL()
 	gc, w, err := ginCtx("/?name=" + name)
 	assert.Nil(t, err)
 
@@ -134,45 +199,71 @@ func TestCTRLGetAll_NameSpecified(t *testing.T) {
 		},
 	}
 
+	mockRes := []Org{
+		{
+			ID:         "foo-id",
+			Name:       name,
+			Desc:       "foo-desc",
+			IsArchived: true,
+			CreatedAt:  int64(100),
+			UpdatedAt:  int64(200),
+		},
+	}
+	ms.On("GetAll", mock.Anything, name).Return(mockRes, nil)
+
 	c.GetAll(gc)
 	res := w.Result()
 	bytes, err := io.ReadAll(res.Body)
 	assert.Nil(t, err)
-	var actuals []Org
-	err = json.Unmarshal(bytes, &actuals)
+	var actual []Org
+	err = json.Unmarshal(bytes, &actual)
 	assert.Nil(t, err)
 	defer res.Body.Close()
-	assert.Equal(t, 1, len(actuals))
-	actual := actuals[0]
 	assert.Equal(t, 200, gc.Writer.Status())
-	assert.NotEqual(t, "", actual.ID)
-	assert.Equal(t, name+"x Name", actual.Name)
-	assert.Equal(t, "Foo Desc", actual.Desc)
-	assert.Equal(t, false, actual.IsArchived)
-	assert.GreaterOrEqual(t, actual.CreatedAt, now)
-	assert.GreaterOrEqual(t, actual.UpdatedAt, now)
+	assert.Equal(t, mockRes, actual)
 }
 
 func TestCTRLGetAll_ServiceError(t *testing.T) {
-	// TODO
+	c, ms := initCTRL()
+	gc, w, err := ginCtx("/")
+	assert.Nil(t, err)
+
+	mockErr := errors.New("unit-test mock service error")
+	ms.On("GetAll", mock.Anything, "").Return([]Org{}, mockErr)
+
+	c.GetAll(gc)
+	res := w.Result()
+	bytes, err := io.ReadAll(res.Body)
+	assert.Nil(t, err)
+	var actual map[string]string
+	err = json.Unmarshal(bytes, &actual)
+	assert.Nil(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, 500, gc.Writer.Status())
+	assert.Equal(t, mockErr.Error(), actual["message"])
 }
 
 func TestCTRLSave(t *testing.T) {
-	now := time.Now().UnixMilli()
 	o := Org{
 		ID:         "body-foo-id",
 		Name:       "foo-name",
 		Desc:       "foo-desc",
 		IsArchived: true,
-		CreatedAt:  now,
-		UpdatedAt:  now,
 	}
 
-	d := NewOrgDAO(logrus.StandardLogger())
-	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
+	c, ms := initCTRL()
 	gc, w, err := ginCtxWithBody("/", o)
 	assert.Nil(t, err)
+
+	mockRes := Org{
+		ID:         o.ID,
+		Name:       o.Name,
+		Desc:       o.Desc,
+		IsArchived: o.IsArchived,
+		CreatedAt:  int64(100),
+		UpdatedAt:  int64(200),
+	}
+	ms.On("Save", mock.Anything, o).Return(mockRes, nil)
 
 	c.Save(gc)
 	res := w.Result()
@@ -183,29 +274,19 @@ func TestCTRLSave(t *testing.T) {
 	assert.Nil(t, err)
 	defer res.Body.Close()
 	assert.Equal(t, 200, gc.Writer.Status())
-	assert.Equal(t, o.ID, actual.ID)
-	assert.Equal(t, o.Name, actual.Name)
-	assert.Equal(t, o.Desc, actual.Desc)
-	assert.Equal(t, o.IsArchived, actual.IsArchived)
-	assert.GreaterOrEqual(t, actual.CreatedAt, now)
-	assert.GreaterOrEqual(t, actual.UpdatedAt, now)
+	assert.Equal(t, mockRes, actual)
 }
 
 func TestCTRLSave_PathID(t *testing.T) {
 	id := "foo-id"
-	now := time.Now().UnixMilli()
 	o := Org{
 		ID:         "body-foo-id",
 		Name:       "foo-name",
 		Desc:       "foo-desc",
 		IsArchived: true,
-		CreatedAt:  now,
-		UpdatedAt:  now,
 	}
 
-	d := NewOrgDAO(logrus.StandardLogger())
-	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
+	c, ms := initCTRL()
 	gc, w, err := ginCtxWithBody("/", o)
 	assert.Nil(t, err)
 
@@ -216,6 +297,22 @@ func TestCTRLSave_PathID(t *testing.T) {
 		},
 	}
 
+	expectedOrg := Org{
+		ID:         id,
+		Name:       o.Name,
+		Desc:       o.Desc,
+		IsArchived: o.IsArchived,
+	}
+	mockRes := Org{
+		ID:         id,
+		Name:       o.Name,
+		Desc:       o.Desc,
+		IsArchived: o.IsArchived,
+		CreatedAt:  int64(100),
+		UpdatedAt:  int64(200),
+	}
+	ms.On("Save", mock.Anything, expectedOrg).Return(mockRes, nil)
+
 	c.Save(gc)
 	res := w.Result()
 	bytes, err := io.ReadAll(res.Body)
@@ -225,23 +322,30 @@ func TestCTRLSave_PathID(t *testing.T) {
 	assert.Nil(t, err)
 	defer res.Body.Close()
 	assert.Equal(t, 200, gc.Writer.Status())
-	assert.Equal(t, id, actual.ID)
-	assert.Equal(t, o.Name, actual.Name)
-	assert.Equal(t, o.Desc, actual.Desc)
-	assert.Equal(t, o.IsArchived, actual.IsArchived)
-	assert.GreaterOrEqual(t, actual.CreatedAt, now)
-	assert.GreaterOrEqual(t, actual.UpdatedAt, now)
+	assert.Equal(t, mockRes, actual)
 }
 
 func TestCTRLSave_ReadError(t *testing.T) {
-	// TODO
+	c, _ := initCTRL()
+	gc, w, err := ginCtxWithIOErr("/")
+	assert.Nil(t, err)
+
+	c.Save(gc)
+	res := w.Result()
+	bytes, err := io.ReadAll(res.Body)
+	assert.Nil(t, err)
+	var actual map[string]string
+	err = json.Unmarshal(bytes, &actual)
+	assert.Nil(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, 400, gc.Writer.Status())
+	assert.Equal(t, mockIOErrMsg, actual["message"])
 }
 
 func TestCTRLSave_UnmarshalError(t *testing.T) {
 	malformedBody := "{"
-	d := NewOrgDAO(logrus.StandardLogger())
-	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
+
+	c, _ := initCTRL()
 	gc, w, err := ginCtxWithStrBody("/", &malformedBody)
 	assert.Nil(t, err)
 
@@ -262,9 +366,8 @@ func TestCTRLSave_ValidationError_MissingName(t *testing.T) {
 		Name: "",
 		Desc: "foo-desc",
 	}
-	d := NewOrgDAO(logrus.StandardLogger())
-	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
+
+	c, _ := initCTRL()
 	gc, w, err := ginCtxWithBody("/", o)
 	assert.Nil(t, err)
 
@@ -287,9 +390,8 @@ func TestCTRLSave_ValidationError_MissingDesc(t *testing.T) {
 		Name: "foo-name",
 		Desc: "",
 	}
-	d := NewOrgDAO(logrus.StandardLogger())
-	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
+
+	c, _ := initCTRL()
 	gc, w, err := ginCtxWithBody("/", o)
 	assert.Nil(t, err)
 
@@ -312,9 +414,8 @@ func TestCTRLSave_ValidationError_MissingNameAndDesc(t *testing.T) {
 		Name: "",
 		Desc: "",
 	}
-	d := NewOrgDAO(logrus.StandardLogger())
-	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
+
+	c, _ := initCTRL()
 	gc, w, err := ginCtxWithBody("/", o)
 	assert.Nil(t, err)
 
@@ -334,15 +435,36 @@ func TestCTRLSave_ValidationError_MissingNameAndDesc(t *testing.T) {
 }
 
 func TestCTRLSave_ServiceError(t *testing.T) {
-	// TODO
+	o := Org{
+		ID:         "body-foo-id",
+		Name:       "foo-name",
+		Desc:       "foo-desc",
+		IsArchived: true,
+	}
+
+	c, ms := initCTRL()
+	gc, w, err := ginCtxWithBody("/", o)
+	assert.Nil(t, err)
+
+	mockErr := errors.New("unit-test mock service error")
+	ms.On("Save", mock.Anything, o).Return(Org{}, mockErr)
+
+	c.Save(gc)
+	res := w.Result()
+	bytes, err := io.ReadAll(res.Body)
+	assert.Nil(t, err)
+	var actual map[string]string
+	err = json.Unmarshal(bytes, &actual)
+	assert.Nil(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, 500, gc.Writer.Status())
+	assert.Equal(t, mockErr.Error(), actual["message"])
 }
 
 func TestCTRLDelete(t *testing.T) {
 	id := "foo-id"
 
-	d := NewOrgDAO(logrus.StandardLogger())
-	s := NewOrgService(logrus.StandardLogger(), d)
-	c := NewOrgController(logrus.StandardLogger(), validator.New(), s)
+	c, ms := initCTRL()
 	gc, _, err := ginCtx("/")
 	assert.Nil(t, err)
 
@@ -353,10 +475,49 @@ func TestCTRLDelete(t *testing.T) {
 		},
 	}
 
+	ms.On("Delete", mock.Anything, id).Return(nil)
+
 	c.Delete(gc)
 	assert.Equal(t, 204, gc.Writer.Status())
 }
 
 func TestCTRLDelete_ServiceError(t *testing.T) {
-	// TODO
+	id := "foo-id"
+
+	c, ms := initCTRL()
+	gc, _, err := ginCtx("/")
+	assert.Nil(t, err)
+
+	gc.Params = []gin.Param{
+		{
+			Key:   "id",
+			Value: id,
+		},
+	}
+
+	mockErr := errors.New("unit-test mock service error")
+	ms.On("Delete", mock.Anything, id).Return(mockErr)
+
+	c.Delete(gc)
+	assert.Equal(t, 500, gc.Writer.Status())
+}
+
+func (m *mockSVC) GetByID(ctx context.Context, id string) (Org, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(Org), args.Error(1)
+}
+
+func (m *mockSVC) GetAll(ctx context.Context, name string) ([]Org, error) {
+	args := m.Called(ctx, name)
+	return args.Get(0).([]Org), args.Error(1)
+}
+
+func (m *mockSVC) Save(ctx context.Context, o Org) (Org, error) {
+	args := m.Called(ctx, o)
+	return args.Get(0).(Org), args.Error(1)
+}
+
+func (m *mockSVC) Delete(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
 }

@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"github.com/RyanBard/gin-ex/internal/pkg/idgen"
 	"github.com/RyanBard/gin-ex/internal/pkg/mdlw"
 	"github.com/RyanBard/gin-ex/internal/pkg/org"
+	"github.com/RyanBard/gin-ex/internal/pkg/timer"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
@@ -16,7 +18,9 @@ func main() {
 	log.SetLevel(logrus.DebugLevel)
 	validate := validator.New()
 	orgDAO := org.NewOrgDAO(log)
-	orgService := org.NewOrgService(log, orgDAO)
+	timer := timer.New()
+	idGenerator := idgen.New()
+	orgService := org.NewOrgService(log, orgDAO, timer, idGenerator)
 	orgCtrl := org.NewOrgController(log, validate, orgService)
 	log.WithField("ctrl", orgCtrl).Info("Here")
 
