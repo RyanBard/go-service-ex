@@ -211,9 +211,17 @@ func TestSVCSave_ID(t *testing.T) {
 		Name:       "foo-name",
 		Desc:       "foo-desc",
 		IsArchived: true,
-		// TODO - change to look up from existingq
-		CreatedAt: int64(100),
+		CreatedAt:  int64(999),
 	}
+
+	previousOrg := Org{
+		ID:         o.ID,
+		Name:       "old-name",
+		Desc:       "old-desc",
+		IsArchived: false,
+		CreatedAt:  int64(100),
+	}
+	md.On("GetByID", ctx, o.ID).Return(previousOrg, nil)
 
 	now := int64(200)
 	mt.On("Now").Return(now)
@@ -223,7 +231,7 @@ func TestSVCSave_ID(t *testing.T) {
 		Name:       o.Name,
 		Desc:       o.Desc,
 		IsArchived: o.IsArchived,
-		CreatedAt:  o.CreatedAt,
+		CreatedAt:  previousOrg.CreatedAt,
 		UpdatedAt:  now,
 	}
 	md.On("Update", ctx, expectedOrg).Return(expectedOrg, nil)
@@ -234,7 +242,28 @@ func TestSVCSave_ID(t *testing.T) {
 	assert.Equal(t, expectedOrg, actual)
 }
 
-func TestSVCSave_ID_DAOErr(t *testing.T) {
+func TestSVCSave_ID_DAOGetByIDErr(t *testing.T) {
+	s, md, _, _ := initSVC()
+
+	ctx := context.Background()
+	o := Org{
+		ID:         "foo-id",
+		Name:       "foo-name",
+		Desc:       "foo-desc",
+		IsArchived: true,
+		CreatedAt:  int64(999),
+	}
+
+	mockErr := errors.New("unit-test mock error")
+	md.On("GetByID", ctx, o.ID).Return(Org{}, mockErr)
+
+	actual, err := s.Save(ctx, o)
+
+	assert.Equal(t, mockErr, err)
+	assert.Equal(t, Org{}, actual)
+}
+
+func TestSVCSave_ID_DAOUpdateErr(t *testing.T) {
 	s, md, mt, _ := initSVC()
 
 	ctx := context.Background()
@@ -243,9 +272,17 @@ func TestSVCSave_ID_DAOErr(t *testing.T) {
 		Name:       "foo-name",
 		Desc:       "foo-desc",
 		IsArchived: true,
-		// TODO - change to look up from existingq
-		CreatedAt: int64(100),
+		CreatedAt:  int64(999),
 	}
+
+	previousOrg := Org{
+		ID:         o.ID,
+		Name:       "old-name",
+		Desc:       "old-desc",
+		IsArchived: false,
+		CreatedAt:  int64(100),
+	}
+	md.On("GetByID", ctx, o.ID).Return(previousOrg, nil)
 
 	now := int64(200)
 	mt.On("Now").Return(now)
@@ -255,7 +292,7 @@ func TestSVCSave_ID_DAOErr(t *testing.T) {
 		Name:       o.Name,
 		Desc:       o.Desc,
 		IsArchived: o.IsArchived,
-		CreatedAt:  o.CreatedAt,
+		CreatedAt:  previousOrg.CreatedAt,
 		UpdatedAt:  now,
 	}
 	mockErr := errors.New("unit-test mock error")

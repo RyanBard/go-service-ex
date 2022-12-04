@@ -69,13 +69,19 @@ func (s service) Save(ctx context.Context, o Org) (Org, error) {
 		"org":   o,
 	})
 	log.Debug("called")
-	o.UpdatedAt = s.timer.Now()
 	if o.ID == "" {
 		o.ID = s.idGen.GenID()
 		o.CreatedAt = s.timer.Now()
+		o.UpdatedAt = s.timer.Now()
 		return s.dao.Create(ctx, o)
 	} else {
-		// TODO - look up previous org for validation and CreatedAt
+		// TODO - maybe just take this out and don't look at createdAt when doing an update
+		prev, err := s.GetByID(ctx, o.ID)
+		if err != nil {
+			return Org{}, err
+		}
+		o.CreatedAt = prev.CreatedAt
+		o.UpdatedAt = s.timer.Now()
 		return s.dao.Update(ctx, o)
 	}
 }
