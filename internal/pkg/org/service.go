@@ -2,6 +2,8 @@ package org
 
 import (
 	"context"
+	"time"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -9,13 +11,13 @@ type OrgDAO interface {
 	GetByID(ctx context.Context, id string) (Org, error)
 	GetAll(ctx context.Context) ([]Org, error)
 	SearchByName(ctx context.Context, name string) ([]Org, error)
-	Create(ctx context.Context, o Org) (Org, error)
+	Create(ctx context.Context, o Org) error
 	Update(ctx context.Context, o Org) (Org, error)
-	Delete(ctx context.Context, id string) error
+	Delete(ctx context.Context, o Org) error
 }
 
 type Timer interface {
-	Now() int64
+	Now() time.Time
 }
 
 type IDGenerator interface {
@@ -71,27 +73,26 @@ func (s service) Save(ctx context.Context, o Org) (Org, error) {
 	log.Debug("called")
 	if o.ID == "" {
 		o.ID = s.idGen.GenID()
+		o.Version = 1
 		o.CreatedAt = s.timer.Now()
 		o.UpdatedAt = s.timer.Now()
-		return s.dao.Create(ctx, o)
-	} else {
-		// TODO - maybe just take this out and don't look at createdAt when doing an update
-		prev, err := s.GetByID(ctx, o.ID)
+		err := s.dao.Create(ctx, o)
 		if err != nil {
 			return Org{}, err
 		}
-		o.CreatedAt = prev.CreatedAt
+		return o, nil
+	} else {
 		o.UpdatedAt = s.timer.Now()
 		return s.dao.Update(ctx, o)
 	}
 }
 
-func (s service) Delete(ctx context.Context, id string) error {
+func (s service) Delete(ctx context.Context, o Org) error {
 	log := s.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Delete",
-		"id":    id,
+		"o":     o,
 	})
 	log.Debug("called")
-	return s.dao.Delete(ctx, id)
+	return s.dao.Delete(ctx, o)
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"testing"
+	"time"
 )
 
 type mockOrgDAO struct {
@@ -147,7 +148,7 @@ func TestSVCSave_NoID(t *testing.T) {
 		IsArchived: true,
 	}
 
-	now := int64(100)
+	now := time.UnixMilli(100)
 	mt.On("Now").Return(now)
 
 	id := "foo-id"
@@ -160,8 +161,9 @@ func TestSVCSave_NoID(t *testing.T) {
 		IsArchived: o.IsArchived,
 		CreatedAt:  now,
 		UpdatedAt:  now,
+		Version:    1,
 	}
-	md.On("Create", ctx, expectedOrg).Return(expectedOrg, nil)
+	md.On("Create", ctx, expectedOrg).Return(nil)
 
 	actual, err := s.Save(ctx, o)
 
@@ -179,7 +181,7 @@ func TestSVCSave_NoID_DAOErr(t *testing.T) {
 		IsArchived: true,
 	}
 
-	now := int64(100)
+	now := time.UnixMilli(100)
 	mt.On("Now").Return(now)
 
 	id := "foo-id"
@@ -192,9 +194,10 @@ func TestSVCSave_NoID_DAOErr(t *testing.T) {
 		IsArchived: o.IsArchived,
 		CreatedAt:  now,
 		UpdatedAt:  now,
+		Version:    1,
 	}
 	mockErr := errors.New("unit-test mock error")
-	md.On("Create", ctx, expectedOrg).Return(Org{}, mockErr)
+	md.On("Create", ctx, expectedOrg).Return(mockErr)
 
 	actual, err := s.Save(ctx, o)
 
@@ -211,19 +214,12 @@ func TestSVCSave_ID(t *testing.T) {
 		Name:       "foo-name",
 		Desc:       "foo-desc",
 		IsArchived: true,
-		CreatedAt:  int64(999),
+		CreatedAt:  time.UnixMilli(100),
+		UpdatedAt:  time.UnixMilli(100),
+		Version:    1,
 	}
 
-	previousOrg := Org{
-		ID:         o.ID,
-		Name:       "old-name",
-		Desc:       "old-desc",
-		IsArchived: false,
-		CreatedAt:  int64(100),
-	}
-	md.On("GetByID", ctx, o.ID).Return(previousOrg, nil)
-
-	now := int64(200)
+	now := time.UnixMilli(200)
 	mt.On("Now").Return(now)
 
 	expectedOrg := Org{
@@ -231,8 +227,9 @@ func TestSVCSave_ID(t *testing.T) {
 		Name:       o.Name,
 		Desc:       o.Desc,
 		IsArchived: o.IsArchived,
-		CreatedAt:  previousOrg.CreatedAt,
+		CreatedAt:  o.CreatedAt,
 		UpdatedAt:  now,
+		Version:    o.Version,
 	}
 	md.On("Update", ctx, expectedOrg).Return(expectedOrg, nil)
 
@@ -240,27 +237,6 @@ func TestSVCSave_ID(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Equal(t, expectedOrg, actual)
-}
-
-func TestSVCSave_ID_DAOGetByIDErr(t *testing.T) {
-	s, md, _, _ := initSVC()
-
-	ctx := context.Background()
-	o := Org{
-		ID:         "foo-id",
-		Name:       "foo-name",
-		Desc:       "foo-desc",
-		IsArchived: true,
-		CreatedAt:  int64(999),
-	}
-
-	mockErr := errors.New("unit-test mock error")
-	md.On("GetByID", ctx, o.ID).Return(Org{}, mockErr)
-
-	actual, err := s.Save(ctx, o)
-
-	assert.Equal(t, mockErr, err)
-	assert.Equal(t, Org{}, actual)
 }
 
 func TestSVCSave_ID_DAOUpdateErr(t *testing.T) {
@@ -272,19 +248,12 @@ func TestSVCSave_ID_DAOUpdateErr(t *testing.T) {
 		Name:       "foo-name",
 		Desc:       "foo-desc",
 		IsArchived: true,
-		CreatedAt:  int64(999),
+		CreatedAt:  time.UnixMilli(100),
+		UpdatedAt:  time.UnixMilli(100),
+		Version:    1,
 	}
 
-	previousOrg := Org{
-		ID:         o.ID,
-		Name:       "old-name",
-		Desc:       "old-desc",
-		IsArchived: false,
-		CreatedAt:  int64(100),
-	}
-	md.On("GetByID", ctx, o.ID).Return(previousOrg, nil)
-
-	now := int64(200)
+	now := time.UnixMilli(200)
 	mt.On("Now").Return(now)
 
 	expectedOrg := Org{
@@ -292,8 +261,9 @@ func TestSVCSave_ID_DAOUpdateErr(t *testing.T) {
 		Name:       o.Name,
 		Desc:       o.Desc,
 		IsArchived: o.IsArchived,
-		CreatedAt:  previousOrg.CreatedAt,
+		CreatedAt:  o.CreatedAt,
 		UpdatedAt:  now,
+		Version:    o.Version,
 	}
 	mockErr := errors.New("unit-test mock error")
 	md.On("Update", ctx, expectedOrg).Return(Org{}, mockErr)
@@ -308,11 +278,19 @@ func TestSVCDelete(t *testing.T) {
 	s, md, _, _ := initSVC()
 
 	ctx := context.Background()
-	id := "foo"
+	o := Org{
+		ID:         "foo-id",
+		Name:       "foo-name",
+		Desc:       "foo-desc",
+		IsArchived: true,
+		CreatedAt:  time.UnixMilli(100),
+		UpdatedAt:  time.UnixMilli(200),
+		Version:    2,
+	}
 
-	md.On("Delete", ctx, id).Return(nil)
+	md.On("Delete", ctx, o).Return(nil)
 
-	err := s.Delete(ctx, id)
+	err := s.Delete(ctx, o)
 	assert.Nil(t, err)
 }
 
@@ -320,12 +298,20 @@ func TestSVCDelete_DAOErr(t *testing.T) {
 	s, md, _, _ := initSVC()
 
 	ctx := context.Background()
-	id := "foo"
+	o := Org{
+		ID:         "foo-id",
+		Name:       "foo-name",
+		Desc:       "foo-desc",
+		IsArchived: true,
+		CreatedAt:  time.UnixMilli(100),
+		UpdatedAt:  time.UnixMilli(200),
+		Version:    2,
+	}
 
 	mockErr := errors.New("unit-test mock error")
-	md.On("Delete", ctx, id).Return(mockErr)
+	md.On("Delete", ctx, o).Return(mockErr)
 
-	err := s.Delete(ctx, id)
+	err := s.Delete(ctx, o)
 	assert.Equal(t, mockErr, err)
 }
 
@@ -344,9 +330,9 @@ func (d *mockOrgDAO) SearchByName(ctx context.Context, name string) ([]Org, erro
 	return args.Get(0).([]Org), args.Error(1)
 }
 
-func (d *mockOrgDAO) Create(ctx context.Context, o Org) (Org, error) {
+func (d *mockOrgDAO) Create(ctx context.Context, o Org) error {
 	args := d.Called(ctx, o)
-	return args.Get(0).(Org), args.Error(1)
+	return args.Error(0)
 }
 
 func (d *mockOrgDAO) Update(ctx context.Context, o Org) (Org, error) {
@@ -354,14 +340,14 @@ func (d *mockOrgDAO) Update(ctx context.Context, o Org) (Org, error) {
 	return args.Get(0).(Org), args.Error(1)
 }
 
-func (d *mockOrgDAO) Delete(ctx context.Context, id string) error {
-	args := d.Called(ctx, id)
+func (d *mockOrgDAO) Delete(ctx context.Context, o Org) error {
+	args := d.Called(ctx, o)
 	return args.Error(0)
 }
 
-func (t *mockTimer) Now() int64 {
+func (t *mockTimer) Now() time.Time {
 	args := t.Called()
-	return args.Get(0).(int64)
+	return args.Get(0).(time.Time)
 }
 
 func (t *mockIDGen) GenID() string {

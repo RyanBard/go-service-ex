@@ -14,7 +14,7 @@ type OrgService interface {
 	GetByID(ctx context.Context, id string) (Org, error)
 	GetAll(ctx context.Context, name string) ([]Org, error)
 	Save(ctx context.Context, o Org) (Org, error)
-	Delete(ctx context.Context, id string) error
+	Delete(ctx context.Context, o Org) error
 }
 
 type ctrl struct {
@@ -68,12 +68,13 @@ func (ctr ctrl) GetAll(c *gin.Context) {
 }
 
 func (ctr ctrl) Save(c *gin.Context) {
+	pathID := c.Param("id")
 	log := ctr.log.WithFields(logrus.Fields{
-		"reqID": c.Request.Context().Value("reqID"),
-		"fn":    "Save",
+		"reqID":  c.Request.Context().Value("reqID"),
+		"fn":     "Save",
+		"pathID": pathID,
 	})
 	log.Debug("called")
-	pathID := c.Param("id")
 	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		log.WithError(err).Error("Read of req body failed")
@@ -110,14 +111,39 @@ func (ctr ctrl) Save(c *gin.Context) {
 }
 
 func (ctr ctrl) Delete(c *gin.Context) {
-	id := c.Param("id")
+	pathID := c.Param("id")
 	log := ctr.log.WithFields(logrus.Fields{
-		"reqID": c.Request.Context().Value("reqID"),
-		"fn":    "Delete",
-		"id":    id,
+		"reqID":  c.Request.Context().Value("reqID"),
+		"fn":     "Delete",
+		"pathID": pathID,
 	})
 	log.Debug("called")
-	if err := ctr.service.Delete(c.Request.Context(), id); err != nil {
+	bytes, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		log.WithError(err).Error("Read of req body failed")
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	defer c.Request.Body.Close()
+	var o Org
+	if err = json.Unmarshal(bytes, &o); err != nil {
+		log.WithError(err).Error("Unmarshalling failed")
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	if pathID != "" {
+		o.ID = pathID
+	}
+	if err = ctr.validate.Struct(o); err != nil {
+		log.WithError(err).Error("Invalid org body")
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	log = ctr.log.WithFields(logrus.Fields{
+		"org": o,
+	})
+	log.Debug("body processed, about to call service")
+	if err := ctr.service.Delete(c.Request.Context(), o); err != nil {
 		log.WithError(err).Error("Service call failed")
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return

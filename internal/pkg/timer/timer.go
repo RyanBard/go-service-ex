@@ -8,6 +8,6 @@ func New() *timer {
 	return &timer{}
 }
 
-func (t *timer) Now() int64 {
-	return time.Now().UnixMilli()
+func (t *timer) Now() time.Time {
+	return time.Now()
 }

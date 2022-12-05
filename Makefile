@@ -43,4 +43,4 @@ curl:
 	curl -v -H 'x-request-id: ryan-test-save-missing-name-and-desc' -H 'Authorization: Bearer foo' -H 'Content-Type: application/json' -d '{}' http://localhost:4000/api/orgs
 	curl -v -H 'x-request-id: ryan-test-find-all' -H 'Authorization: Bearer foo' -H 'Content-Type: application/json' http://localhost:4000/api/orgs
 	curl -v -H 'x-request-id: ryan-test-find-all-matching-name' -H 'Authorization: Bearer foo' -H 'Content-Type: application/json' http://localhost:4000/api/orgs?name=foobar
-	curl -v -H 'x-request-id: ryan-test-delete' -H 'Authorization: Bearer foo' -H 'Content-Type: application/json' -X DELETE http://localhost:4000/api/orgs/123
+	curl -v -H 'x-request-id: ryan-test-delete' -H 'Authorization: Bearer foo' -H 'Content-Type: application/json' -X DELETE -d '{"id": "123", "name": "foo", "desc": "bar", "is_archived": false, "version": 1}' http://localhost:4000/api/orgs/123

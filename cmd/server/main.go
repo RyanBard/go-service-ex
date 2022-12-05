@@ -2,25 +2,45 @@ package main
 
 import (
 	"fmt"
+	"github.com/RyanBard/gin-ex/internal/pkg/config"
 	"github.com/RyanBard/gin-ex/internal/pkg/idgen"
 	"github.com/RyanBard/gin-ex/internal/pkg/mdlw"
 	"github.com/RyanBard/gin-ex/internal/pkg/org"
 	"github.com/RyanBard/gin-ex/internal/pkg/timer"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"net/http"
 )
 
 func main() {
-	port := 4000
 	log := logrus.StandardLogger()
-	log.SetLevel(logrus.DebugLevel)
-	validate := validator.New()
-	orgDAO := org.NewOrgDAO(log)
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.WithError(err).Fatal("invalid config")
+	}
+	logLvl, err := logrus.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		log.WithError(err).Fatal("invalid log level")
+	}
+	log.SetLevel(logLvl)
+	db := sqlx.MustConnect(
+		"postgres",
+		fmt.Sprintf(
+			"user=%s password=%s dbname=%s sslmode=%s",
+			cfg.DB.User,
+			cfg.DB.Password,
+			cfg.DB.DBName,
+			cfg.DB.SSLMode,
+		),
+	)
+	orgDAO := org.NewOrgDAO(log, db)
 	timer := timer.New()
 	idGenerator := idgen.New()
 	orgService := org.NewOrgService(log, orgDAO, timer, idGenerator)
+	validate := validator.New()
 	orgCtrl := org.NewOrgController(log, validate, orgService)
 	log.WithField("ctrl", orgCtrl).Info("Here")
 
@@ -49,5 +69,5 @@ func main() {
 	authorized.PUT("/orgs/:id", orgCtrl.Save)
 	authorized.DELETE("/orgs/:id", orgCtrl.Delete)
 
-	r.Run(fmt.Sprintf(":%v", port))
+	r.Run(fmt.Sprintf(":%v", cfg.Port))
 }

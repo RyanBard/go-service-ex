@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 type mockSVC struct {
@@ -110,8 +111,8 @@ func TestCTRLGetByID(t *testing.T) {
 		Name:       "foo-name",
 		Desc:       "foo-desc",
 		IsArchived: true,
-		CreatedAt:  int64(100),
-		UpdatedAt:  int64(200),
+		CreatedAt:  time.UnixMilli(100),
+		UpdatedAt:  time.UnixMilli(200),
 	}
 	ms.On("GetByID", mock.Anything, id).Return(mockRes, nil)
 
@@ -167,8 +168,8 @@ func TestCTRLGetAll(t *testing.T) {
 			Name:       "foo-name",
 			Desc:       "foo-desc",
 			IsArchived: true,
-			CreatedAt:  int64(100),
-			UpdatedAt:  int64(200),
+			CreatedAt:  time.UnixMilli(100),
+			UpdatedAt:  time.UnixMilli(200),
 		},
 	}
 	ms.On("GetAll", mock.Anything, "").Return(mockRes, nil)
@@ -205,8 +206,8 @@ func TestCTRLGetAll_NameSpecified(t *testing.T) {
 			Name:       name,
 			Desc:       "foo-desc",
 			IsArchived: true,
-			CreatedAt:  int64(100),
-			UpdatedAt:  int64(200),
+			CreatedAt:  time.UnixMilli(100),
+			UpdatedAt:  time.UnixMilli(200),
 		},
 	}
 	ms.On("GetAll", mock.Anything, name).Return(mockRes, nil)
@@ -260,8 +261,8 @@ func TestCTRLSave(t *testing.T) {
 		Name:       o.Name,
 		Desc:       o.Desc,
 		IsArchived: o.IsArchived,
-		CreatedAt:  int64(100),
-		UpdatedAt:  int64(200),
+		CreatedAt:  time.UnixMilli(100),
+		UpdatedAt:  time.UnixMilli(200),
 	}
 	ms.On("Save", mock.Anything, o).Return(mockRes, nil)
 
@@ -308,8 +309,8 @@ func TestCTRLSave_PathID(t *testing.T) {
 		Name:       o.Name,
 		Desc:       o.Desc,
 		IsArchived: o.IsArchived,
-		CreatedAt:  int64(100),
-		UpdatedAt:  int64(200),
+		CreatedAt:  time.UnixMilli(100),
+		UpdatedAt:  time.UnixMilli(200),
 	}
 	ms.On("Save", mock.Anything, expectedOrg).Return(mockRes, nil)
 
@@ -462,41 +463,51 @@ func TestCTRLSave_ServiceError(t *testing.T) {
 }
 
 func TestCTRLDelete(t *testing.T) {
-	id := "foo-id"
+	o := Org{
+		ID:         "body-foo-id",
+		Name:       "foo-name",
+		Desc:       "foo-desc",
+		IsArchived: true,
+	}
 
 	c, ms := initCTRL()
-	gc, _, err := ginCtx("/")
+	gc, _, err := ginCtxWithBody("/", o)
 	assert.Nil(t, err)
 
 	gc.Params = []gin.Param{
 		{
 			Key:   "id",
-			Value: id,
+			Value: o.ID,
 		},
 	}
 
-	ms.On("Delete", mock.Anything, id).Return(nil)
+	ms.On("Delete", mock.Anything, o).Return(nil)
 
 	c.Delete(gc)
 	assert.Equal(t, 204, gc.Writer.Status())
 }
 
 func TestCTRLDelete_ServiceError(t *testing.T) {
-	id := "foo-id"
+	o := Org{
+		ID:         "body-foo-id",
+		Name:       "foo-name",
+		Desc:       "foo-desc",
+		IsArchived: true,
+	}
 
 	c, ms := initCTRL()
-	gc, _, err := ginCtx("/")
+	gc, _, err := ginCtxWithBody("/", o)
 	assert.Nil(t, err)
 
 	gc.Params = []gin.Param{
 		{
 			Key:   "id",
-			Value: id,
+			Value: o.ID,
 		},
 	}
 
 	mockErr := errors.New("unit-test mock service error")
-	ms.On("Delete", mock.Anything, id).Return(mockErr)
+	ms.On("Delete", mock.Anything, o).Return(mockErr)
 
 	c.Delete(gc)
 	assert.Equal(t, 500, gc.Writer.Status())
@@ -517,7 +528,7 @@ func (m *mockSVC) Save(ctx context.Context, o Org) (Org, error) {
 	return args.Get(0).(Org), args.Error(1)
 }
 
-func (m *mockSVC) Delete(ctx context.Context, id string) error {
-	args := m.Called(ctx, id)
+func (m *mockSVC) Delete(ctx context.Context, o Org) error {
+	args := m.Called(ctx, o)
 	return args.Error(0)
 }
