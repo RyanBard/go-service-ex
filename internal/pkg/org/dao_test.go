@@ -49,19 +49,20 @@ func getRows() *sqlmock.Rows {
 	)
 }
 
-func initDAO() (d *dao, md sqlmock.Sqlmock) {
+func initDAO() (d *dao, dbx *sqlx.DB, md sqlmock.Sqlmock) {
 	log := logrus.StandardLogger()
 	log.SetLevel(logrus.PanicLevel)
 	db, md, err := sqlmock.New()
 	if err != nil {
 		log.Fatal("failed to mock db")
 	}
-	d = NewOrgDAO(log, sqlx.NewDb(db, "sqlmock"))
-	return d, md
+	dbx = sqlx.NewDb(db, "sqlmock")
+	d = NewOrgDAO(log, dbx)
+	return d, dbx, md
 }
 
 func TestDAOGetByID(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	md.ExpectQuery(regexp.QuoteMeta(getByIDQuery)).
 		WithArgs(id).
@@ -69,6 +70,7 @@ func TestDAOGetByID(t *testing.T) {
 
 	actual, err := d.GetByID(ctx, id)
 
+	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Nil(t, err)
 	assert.Equal(t, id, actual.ID)
 	assert.Equal(t, name, actual.Name)
@@ -80,7 +82,7 @@ func TestDAOGetByID(t *testing.T) {
 }
 
 func TestDAOGetByID_NotFoundErr(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	md.ExpectQuery(regexp.QuoteMeta(getByIDQuery)).
 		WithArgs(id).
@@ -88,6 +90,7 @@ func TestDAOGetByID_NotFoundErr(t *testing.T) {
 
 	_, err := d.GetByID(ctx, id)
 
+	assert.Nil(t, md.ExpectationsWereMet())
 	var expected NotFoundErr
 	assert.True(t, errors.As(err, &expected))
 	assert.Contains(t, err.Error(), "not found")
@@ -95,7 +98,7 @@ func TestDAOGetByID_NotFoundErr(t *testing.T) {
 }
 
 func TestDAOGetByID_OtherErr(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	mockErr := errors.New("unit-test mock error")
 	md.ExpectQuery(regexp.QuoteMeta(getByIDQuery)).
@@ -104,17 +107,19 @@ func TestDAOGetByID_OtherErr(t *testing.T) {
 
 	_, err := d.GetByID(ctx, id)
 
+	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Equal(t, mockErr, err)
 }
 
 func TestDAOGetAll(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	md.ExpectQuery(regexp.QuoteMeta(getAllQuery)).
 		WillReturnRows(getRows())
 
 	actuals, err := d.GetAll(ctx)
 
+	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(actuals))
 	actual := actuals[0]
@@ -128,7 +133,7 @@ func TestDAOGetAll(t *testing.T) {
 }
 
 func TestDAOGetAll_Error(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	mockErr := errors.New("unit-test mock error")
 	md.ExpectQuery(regexp.QuoteMeta(getAllQuery)).
@@ -136,11 +141,12 @@ func TestDAOGetAll_Error(t *testing.T) {
 
 	_, err := d.GetAll(ctx)
 
+	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Equal(t, mockErr, err)
 }
 
 func TestDAOSearchByName(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	md.ExpectQuery(regexp.QuoteMeta(searchByNameQuery)).
 		WithArgs("%" + partialName + "%").
@@ -148,6 +154,7 @@ func TestDAOSearchByName(t *testing.T) {
 
 	actuals, err := d.SearchByName(ctx, partialName)
 
+	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(actuals))
 	actual := actuals[0]
@@ -161,7 +168,7 @@ func TestDAOSearchByName(t *testing.T) {
 }
 
 func TestDAOSearchByName_Error(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	mockErr := errors.New("unit-test mock error")
 	md.ExpectQuery(regexp.QuoteMeta(searchByNameQuery)).
@@ -170,11 +177,12 @@ func TestDAOSearchByName_Error(t *testing.T) {
 
 	_, err := d.SearchByName(ctx, partialName)
 
+	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Equal(t, mockErr, err)
 }
 
 func TestDAOCreate(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	o := Org{
 		ID:         id,
@@ -193,11 +201,39 @@ func TestDAOCreate(t *testing.T) {
 
 	err := d.Create(ctx, o)
 
+	assert.Nil(t, md.ExpectationsWereMet())
+	assert.Nil(t, err)
+}
+
+func TestDAOCreate_JoinTX(t *testing.T) {
+	d, db, md := initDAO()
+
+	o := Org{
+		ID:         id,
+		Name:       name,
+		Desc:       desc,
+		IsArchived: isArchived,
+		CreatedAt:  createdAt,
+		UpdatedAt:  updatedAt,
+		Version:    version,
+	}
+
+	md.ExpectBegin()
+	md.ExpectExec("INSERT INTO orgs").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	// No Commit
+
+	tx, err := db.Beginx()
+	assert.Nil(t, err)
+
+	err = d.Create(context.WithValue(ctx, "pg-tx", tx), o)
+
+	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Nil(t, err)
 }
 
 func TestDAOCreate_Err(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	o := Org{
 		ID:         id,
@@ -217,11 +253,40 @@ func TestDAOCreate_Err(t *testing.T) {
 
 	err := d.Create(ctx, o)
 
+	assert.Nil(t, md.ExpectationsWereMet())
+	assert.Equal(t, mockErr, err)
+}
+
+func TestDAOCreate_Err_JoinTX(t *testing.T) {
+	d, db, md := initDAO()
+
+	o := Org{
+		ID:         id,
+		Name:       name,
+		Desc:       desc,
+		IsArchived: isArchived,
+		CreatedAt:  createdAt,
+		UpdatedAt:  updatedAt,
+		Version:    version,
+	}
+
+	mockErr := errors.New("unit-test mock error")
+	md.ExpectBegin()
+	md.ExpectExec("INSERT INTO orgs").
+		WillReturnError(mockErr)
+	// No Rollback
+
+	tx, err := db.Beginx()
+	assert.Nil(t, err)
+
+	err = d.Create(context.WithValue(ctx, "pg-tx", tx), o)
+
+	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Equal(t, mockErr, err)
 }
 
 func TestDAOUpdate(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	o := Org{
 		ID:         id,
@@ -240,6 +305,41 @@ func TestDAOUpdate(t *testing.T) {
 
 	actual, err := d.Update(ctx, o)
 
+	assert.Nil(t, md.ExpectationsWereMet())
+	assert.Nil(t, err)
+	assert.Equal(t, o.ID, actual.ID)
+	assert.Equal(t, o.Name, actual.Name)
+	assert.Equal(t, o.Desc, actual.Desc)
+	assert.Equal(t, o.IsArchived, actual.IsArchived)
+	assert.Equal(t, o.CreatedAt, actual.CreatedAt)
+	assert.Equal(t, o.UpdatedAt, actual.UpdatedAt)
+	assert.Equal(t, o.Version+1, actual.Version)
+}
+
+func TestDAOUpdate_JoinTX(t *testing.T) {
+	d, db, md := initDAO()
+
+	o := Org{
+		ID:         id,
+		Name:       name,
+		Desc:       desc,
+		IsArchived: isArchived,
+		CreatedAt:  createdAt,
+		UpdatedAt:  updatedAt,
+		Version:    version,
+	}
+
+	md.ExpectBegin()
+	md.ExpectExec("UPDATE orgs").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	// No Commit
+
+	tx, err := db.Beginx()
+	assert.Nil(t, err)
+
+	actual, err := d.Update(context.WithValue(ctx, "pg-tx", tx), o)
+
+	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Nil(t, err)
 	assert.Equal(t, o.ID, actual.ID)
 	assert.Equal(t, o.Name, actual.Name)
@@ -251,7 +351,7 @@ func TestDAOUpdate(t *testing.T) {
 }
 
 func TestDAOUpdate_OptimisticLockErr(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	o := Org{
 		ID:         id,
@@ -270,6 +370,7 @@ func TestDAOUpdate_OptimisticLockErr(t *testing.T) {
 
 	_, err := d.Update(ctx, o)
 
+	assert.Nil(t, md.ExpectationsWereMet())
 	var expected OptimisticLockErr
 	assert.True(t, errors.As(err, &expected))
 	assert.Contains(t, err.Error(), "modified")
@@ -278,7 +379,7 @@ func TestDAOUpdate_OptimisticLockErr(t *testing.T) {
 }
 
 func TestDAOUpdate_OtherErr(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	o := Org{
 		ID:         id,
@@ -298,11 +399,40 @@ func TestDAOUpdate_OtherErr(t *testing.T) {
 
 	_, err := d.Update(ctx, o)
 
+	assert.Nil(t, md.ExpectationsWereMet())
+	assert.Equal(t, mockErr, err)
+}
+
+func TestDAOUpdate_OtherErr_JoinTX(t *testing.T) {
+	d, db, md := initDAO()
+
+	o := Org{
+		ID:         id,
+		Name:       name,
+		Desc:       desc,
+		IsArchived: isArchived,
+		CreatedAt:  createdAt,
+		UpdatedAt:  updatedAt,
+		Version:    version,
+	}
+
+	mockErr := errors.New("unit-test mock error")
+	md.ExpectBegin()
+	md.ExpectExec("UPDATE orgs").
+		WillReturnError(mockErr)
+	// No Rollback
+
+	tx, err := db.Beginx()
+	assert.Nil(t, err)
+
+	_, err = d.Update(context.WithValue(ctx, "pg-tx", tx), o)
+
+	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Equal(t, mockErr, err)
 }
 
 func TestDAODelete(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	o := Org{
 		ID:         id,
@@ -321,11 +451,39 @@ func TestDAODelete(t *testing.T) {
 
 	err := d.Delete(ctx, o)
 
+	assert.Nil(t, md.ExpectationsWereMet())
+	assert.Nil(t, err)
+}
+
+func TestDAODelete_JoinTX(t *testing.T) {
+	d, db, md := initDAO()
+
+	o := Org{
+		ID:         id,
+		Name:       name,
+		Desc:       desc,
+		IsArchived: isArchived,
+		CreatedAt:  createdAt,
+		UpdatedAt:  updatedAt,
+		Version:    version,
+	}
+
+	md.ExpectBegin()
+	md.ExpectExec("DELETE FROM orgs").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	// No Commit
+
+	tx, err := db.Beginx()
+	assert.Nil(t, err)
+
+	err = d.Delete(context.WithValue(ctx, "pg-tx", tx), o)
+
+	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Nil(t, err)
 }
 
 func TestDAODelete_OptimisticLockErr(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	o := Org{
 		ID:         id,
@@ -344,6 +502,7 @@ func TestDAODelete_OptimisticLockErr(t *testing.T) {
 
 	err := d.Delete(ctx, o)
 
+	assert.Nil(t, md.ExpectationsWereMet())
 	var expected OptimisticLockErr
 	assert.True(t, errors.As(err, &expected))
 	assert.Contains(t, err.Error(), "modified")
@@ -352,7 +511,7 @@ func TestDAODelete_OptimisticLockErr(t *testing.T) {
 }
 
 func TestDAODelete_OtherErr(t *testing.T) {
-	d, md := initDAO()
+	d, _, md := initDAO()
 
 	o := Org{
 		ID:         id,
@@ -372,5 +531,34 @@ func TestDAODelete_OtherErr(t *testing.T) {
 
 	err := d.Delete(ctx, o)
 
+	assert.Nil(t, md.ExpectationsWereMet())
+	assert.Equal(t, mockErr, err)
+}
+
+func TestDAODelete_OtherErr_JoinTX(t *testing.T) {
+	d, db, md := initDAO()
+
+	o := Org{
+		ID:         id,
+		Name:       name,
+		Desc:       desc,
+		IsArchived: isArchived,
+		CreatedAt:  createdAt,
+		UpdatedAt:  updatedAt,
+		Version:    version,
+	}
+
+	mockErr := errors.New("unit-test mock error")
+	md.ExpectBegin()
+	md.ExpectExec("DELETE FROM orgs").
+		WillReturnError(mockErr)
+	// No Rollback
+
+	tx, err := db.Beginx()
+	assert.Nil(t, err)
+
+	err = d.Delete(context.WithValue(ctx, "pg-tx", tx), o)
+
+	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Equal(t, mockErr, err)
 }

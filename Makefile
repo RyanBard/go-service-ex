@@ -1,15 +1,18 @@
-.PHONY: default clean pretty test start curl
+.PHONY: default clean deps pretty test start curl
 
-default: clean pretty build test
-
-build:
-	go build ./...
+default: clean deps pretty build test
 
 clean:
 	echo TODO: fix this after fixing build
 
+deps:
+	go mod download
+
 pretty:
 	gofmt -l -s -w .
+
+build:
+	go build ./...
 
 test:
 	go test ./...
