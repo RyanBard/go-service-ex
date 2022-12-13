@@ -86,36 +86,13 @@ func (d dao) SearchByName(ctx context.Context, name string) (orgs []Org, err err
 	return orgs, err
 }
 
-func (d dao) Create(ctx context.Context, o Org) (err error) {
+func (d dao) Create(ctx context.Context, tx *sqlx.Tx, o Org) (err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Create",
 		"org":   o,
 	})
 	log.Debug("called")
-	tx, ok := ctx.Value("pg-tx").(*sqlx.Tx)
-	if ok {
-		log.Debug("tx found, joining it")
-	} else {
-		log.Debug("tx not found, creating a new one")
-		tx, err = d.db.Beginx()
-		if err != nil {
-			log.WithError(err).Error("tx not found, failed to create a new one")
-			return err
-		}
-		defer func() {
-			if err != nil {
-				log.Warn("rolling back automatically created tx")
-				rollbackErr := tx.Rollback()
-				if rollbackErr != nil {
-					log.WithError(rollbackErr).Error("failed to rollback")
-				}
-				return
-			}
-			log.Debug("committing automatically created tx")
-			err = tx.Commit()
-		}()
-	}
 	r, err := tx.NamedExecContext(ctx, createQuery, &o)
 	if err != nil {
 		log.WithError(err).Error("failed to execute query")
@@ -134,36 +111,13 @@ func (d dao) Create(ctx context.Context, o Org) (err error) {
 	return err
 }
 
-func (d dao) Update(ctx context.Context, input Org) (o Org, err error) {
+func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input Org) (o Org, err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Update",
 		"org":   input,
 	})
 	log.Debug("called")
-	tx, ok := ctx.Value("pg-tx").(*sqlx.Tx)
-	if ok {
-		log.Debug("tx found, joining it")
-	} else {
-		log.Debug("tx not found, creating a new one")
-		tx, err = d.db.Beginx()
-		if err != nil {
-			log.WithError(err).Error("tx not found, failed to create a new one")
-			return o, err
-		}
-		defer func() {
-			if err != nil {
-				log.Warn("rolling back automatically created tx")
-				rollbackErr := tx.Rollback()
-				if rollbackErr != nil {
-					log.WithError(rollbackErr).Error("failed to rollback")
-				}
-				return
-			}
-			log.Debug("committing automatically created tx")
-			err = tx.Commit()
-		}()
-	}
 	r, err := tx.NamedExecContext(ctx, updateQuery, &input)
 	if err != nil {
 		log.WithError(err).Error("failed to execute query")
@@ -186,36 +140,13 @@ func (d dao) Update(ctx context.Context, input Org) (o Org, err error) {
 	return input, err
 }
 
-func (d dao) Delete(ctx context.Context, o Org) (err error) {
+func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, o Org) (err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Delete",
 		"o":     o,
 	})
 	log.Debug("called")
-	tx, ok := ctx.Value("pg-tx").(*sqlx.Tx)
-	if ok {
-		log.Debug("tx found, joining it")
-	} else {
-		log.Debug("tx not found, creating a new one")
-		tx, err = d.db.Beginx()
-		if err != nil {
-			log.WithError(err).Error("tx not found, failed to create a new one")
-			return err
-		}
-		defer func() {
-			if err != nil {
-				log.Warn("rolling back automatically created tx")
-				rollbackErr := tx.Rollback()
-				if rollbackErr != nil {
-					log.WithError(rollbackErr).Error("failed to rollback")
-				}
-				return
-			}
-			log.Debug("committing automatically created tx")
-			err = tx.Commit()
-		}()
-	}
 	r, err := tx.NamedExecContext(ctx, deleteQuery, &o)
 	if err != nil {
 		log.WithError(err).Error("failed to execute query")

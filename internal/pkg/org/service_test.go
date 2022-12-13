@@ -3,6 +3,7 @@ package org
 import (
 	"context"
 	"errors"
+	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -14,6 +15,10 @@ type mockOrgDAO struct {
 	mock.Mock
 }
 
+type mockTXManager struct {
+	mock.Mock
+}
+
 type mockTimer struct {
 	mock.Mock
 }
@@ -22,18 +27,19 @@ type mockIDGen struct {
 	mock.Mock
 }
 
-func initSVC() (s *service, md *mockOrgDAO, mt *mockTimer, mi *mockIDGen) {
+func initSVC() (s *service, md *mockOrgDAO, mm *mockTXManager, mt *mockTimer, mi *mockIDGen) {
 	log := logrus.StandardLogger()
 	log.SetLevel(logrus.PanicLevel)
 	md = new(mockOrgDAO)
+	mm = new(mockTXManager)
 	mt = new(mockTimer)
 	mi = new(mockIDGen)
-	s = NewOrgService(log, md, mt, mi)
-	return s, md, mt, mi
+	s = NewOrgService(log, md, mm, mt, mi)
+	return s, md, mm, mt, mi
 }
 
 func TestSVCGetByID(t *testing.T) {
-	s, md, _, _ := initSVC()
+	s, md, _, _, _ := initSVC()
 
 	ctx := context.Background()
 	id := "foo-id"
@@ -52,7 +58,7 @@ func TestSVCGetByID(t *testing.T) {
 }
 
 func TestSVCGetByID_DAOErr(t *testing.T) {
-	s, md, _, _ := initSVC()
+	s, md, _, _, _ := initSVC()
 
 	ctx := context.Background()
 	id := "foo-id"
@@ -67,7 +73,7 @@ func TestSVCGetByID_DAOErr(t *testing.T) {
 }
 
 func TestSVCGetAll(t *testing.T) {
-	s, md, _, _ := initSVC()
+	s, md, _, _, _ := initSVC()
 
 	ctx := context.Background()
 	name := ""
@@ -88,7 +94,7 @@ func TestSVCGetAll(t *testing.T) {
 }
 
 func TestSVCGetAll_DAOErr(t *testing.T) {
-	s, md, _, _ := initSVC()
+	s, md, _, _, _ := initSVC()
 
 	ctx := context.Background()
 	name := ""
@@ -103,7 +109,7 @@ func TestSVCGetAll_DAOErr(t *testing.T) {
 }
 
 func TestSVCGetAll_NameSpecified(t *testing.T) {
-	s, md, _, _ := initSVC()
+	s, md, _, _, _ := initSVC()
 
 	ctx := context.Background()
 	name := "foo"
@@ -124,7 +130,7 @@ func TestSVCGetAll_NameSpecified(t *testing.T) {
 }
 
 func TestSVCGetAll_NameSpecified_DAOErr(t *testing.T) {
-	s, md, _, _ := initSVC()
+	s, md, _, _, _ := initSVC()
 
 	ctx := context.Background()
 	name := "foo"
@@ -139,7 +145,7 @@ func TestSVCGetAll_NameSpecified_DAOErr(t *testing.T) {
 }
 
 func TestSVCSave_NoID(t *testing.T) {
-	s, md, mt, mi := initSVC()
+	s, md, _, mt, mi := initSVC()
 
 	ctx := context.Background()
 	o := Org{
@@ -163,7 +169,8 @@ func TestSVCSave_NoID(t *testing.T) {
 		UpdatedAt:  now,
 		Version:    1,
 	}
-	md.On("Create", ctx, expectedOrg).Return(nil)
+	var expectedTX *sqlx.Tx
+	md.On("Create", ctx, expectedTX, expectedOrg).Return(nil)
 
 	actual, err := s.Save(ctx, o)
 
@@ -172,7 +179,7 @@ func TestSVCSave_NoID(t *testing.T) {
 }
 
 func TestSVCSave_NoID_DAOErr(t *testing.T) {
-	s, md, mt, mi := initSVC()
+	s, md, _, mt, mi := initSVC()
 
 	ctx := context.Background()
 	o := Org{
@@ -196,8 +203,9 @@ func TestSVCSave_NoID_DAOErr(t *testing.T) {
 		UpdatedAt:  now,
 		Version:    1,
 	}
+	var expectedTX *sqlx.Tx
 	mockErr := errors.New("unit-test mock error")
-	md.On("Create", ctx, expectedOrg).Return(mockErr)
+	md.On("Create", ctx, expectedTX, expectedOrg).Return(mockErr)
 
 	actual, err := s.Save(ctx, o)
 
@@ -206,7 +214,7 @@ func TestSVCSave_NoID_DAOErr(t *testing.T) {
 }
 
 func TestSVCSave_ID(t *testing.T) {
-	s, md, mt, _ := initSVC()
+	s, md, _, mt, _ := initSVC()
 
 	ctx := context.Background()
 	o := Org{
@@ -231,7 +239,8 @@ func TestSVCSave_ID(t *testing.T) {
 		UpdatedAt:  now,
 		Version:    o.Version,
 	}
-	md.On("Update", ctx, expectedOrg).Return(expectedOrg, nil)
+	var expectedTX *sqlx.Tx
+	md.On("Update", ctx, expectedTX, expectedOrg).Return(expectedOrg, nil)
 
 	actual, err := s.Save(ctx, o)
 
@@ -240,7 +249,7 @@ func TestSVCSave_ID(t *testing.T) {
 }
 
 func TestSVCSave_ID_DAOUpdateErr(t *testing.T) {
-	s, md, mt, _ := initSVC()
+	s, md, _, mt, _ := initSVC()
 
 	ctx := context.Background()
 	o := Org{
@@ -265,8 +274,9 @@ func TestSVCSave_ID_DAOUpdateErr(t *testing.T) {
 		UpdatedAt:  now,
 		Version:    o.Version,
 	}
+	var expectedTX *sqlx.Tx
 	mockErr := errors.New("unit-test mock error")
-	md.On("Update", ctx, expectedOrg).Return(Org{}, mockErr)
+	md.On("Update", ctx, expectedTX, expectedOrg).Return(Org{}, mockErr)
 
 	actual, err := s.Save(ctx, o)
 
@@ -275,7 +285,7 @@ func TestSVCSave_ID_DAOUpdateErr(t *testing.T) {
 }
 
 func TestSVCDelete(t *testing.T) {
-	s, md, _, _ := initSVC()
+	s, md, _, _, _ := initSVC()
 
 	ctx := context.Background()
 	o := Org{
@@ -288,14 +298,15 @@ func TestSVCDelete(t *testing.T) {
 		Version:    2,
 	}
 
-	md.On("Delete", ctx, o).Return(nil)
+	var expectedTX *sqlx.Tx
+	md.On("Delete", ctx, expectedTX, o).Return(nil)
 
 	err := s.Delete(ctx, o)
 	assert.Nil(t, err)
 }
 
 func TestSVCDelete_DAOErr(t *testing.T) {
-	s, md, _, _ := initSVC()
+	s, md, _, _, _ := initSVC()
 
 	ctx := context.Background()
 	o := Org{
@@ -308,8 +319,9 @@ func TestSVCDelete_DAOErr(t *testing.T) {
 		Version:    2,
 	}
 
+	var expectedTX *sqlx.Tx
 	mockErr := errors.New("unit-test mock error")
-	md.On("Delete", ctx, o).Return(mockErr)
+	md.On("Delete", ctx, expectedTX, o).Return(mockErr)
 
 	err := s.Delete(ctx, o)
 	assert.Equal(t, mockErr, err)
@@ -330,19 +342,23 @@ func (d *mockOrgDAO) SearchByName(ctx context.Context, name string) ([]Org, erro
 	return args.Get(0).([]Org), args.Error(1)
 }
 
-func (d *mockOrgDAO) Create(ctx context.Context, o Org) error {
-	args := d.Called(ctx, o)
+func (d *mockOrgDAO) Create(ctx context.Context, tx *sqlx.Tx, o Org) error {
+	args := d.Called(ctx, tx, o)
 	return args.Error(0)
 }
 
-func (d *mockOrgDAO) Update(ctx context.Context, o Org) (Org, error) {
-	args := d.Called(ctx, o)
+func (d *mockOrgDAO) Update(ctx context.Context, tx *sqlx.Tx, o Org) (Org, error) {
+	args := d.Called(ctx, tx, o)
 	return args.Get(0).(Org), args.Error(1)
 }
 
-func (d *mockOrgDAO) Delete(ctx context.Context, o Org) error {
-	args := d.Called(ctx, o)
+func (d *mockOrgDAO) Delete(ctx context.Context, tx *sqlx.Tx, o Org) error {
+	args := d.Called(ctx, tx, o)
 	return args.Error(0)
+}
+
+func (m *mockTXManager) Do(ctx context.Context, f func(tx *sqlx.Tx) error) error {
+	return f(nil)
 }
 
 func (t *mockTimer) Now() time.Time {

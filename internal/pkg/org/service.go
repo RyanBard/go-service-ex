@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 )
 
@@ -11,9 +12,13 @@ type OrgDAO interface {
 	GetByID(ctx context.Context, id string) (Org, error)
 	GetAll(ctx context.Context) ([]Org, error)
 	SearchByName(ctx context.Context, name string) ([]Org, error)
-	Create(ctx context.Context, o Org) error
-	Update(ctx context.Context, o Org) (Org, error)
-	Delete(ctx context.Context, o Org) error
+	Create(ctx context.Context, tx *sqlx.Tx, o Org) error
+	Update(ctx context.Context, tx *sqlx.Tx, o Org) (Org, error)
+	Delete(ctx context.Context, tx *sqlx.Tx, o Org) error
+}
+
+type TXManager interface {
+	Do(ctx context.Context, f func(*sqlx.Tx) error) error
 }
 
 type Timer interface {
@@ -27,14 +32,16 @@ type IDGenerator interface {
 type service struct {
 	log   logrus.FieldLogger
 	dao   OrgDAO
+	txMGR TXManager
 	timer Timer
 	idGen IDGenerator
 }
 
-func NewOrgService(log logrus.FieldLogger, dao OrgDAO, timer Timer, idGen IDGenerator) *service {
+func NewOrgService(log logrus.FieldLogger, dao OrgDAO, txMGR TXManager, timer Timer, idGen IDGenerator) *service {
 	return &service{
 		log:   log.WithField("SVC", "OrgSVC"),
 		dao:   dao,
+		txMGR: txMGR,
 		timer: timer,
 		idGen: idGen,
 	}
@@ -64,27 +71,31 @@ func (s service) GetAll(ctx context.Context, name string) ([]Org, error) {
 	}
 }
 
-func (s service) Save(ctx context.Context, o Org) (Org, error) {
+func (s service) Save(ctx context.Context, o Org) (out Org, err error) {
 	log := s.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Save",
 		"org":   o,
 	})
 	log.Debug("called")
-	if o.ID == "" {
-		o.ID = s.idGen.GenID()
-		o.Version = 1
-		o.CreatedAt = s.timer.Now()
-		o.UpdatedAt = s.timer.Now()
-		err := s.dao.Create(ctx, o)
-		if err != nil {
-			return Org{}, err
+	err = s.txMGR.Do(ctx, func(tx *sqlx.Tx) error {
+		if o.ID == "" {
+			o.ID = s.idGen.GenID()
+			o.Version = 1
+			o.CreatedAt = s.timer.Now()
+			o.UpdatedAt = s.timer.Now()
+			out = o
+			return s.dao.Create(ctx, tx, o)
+		} else {
+			o.UpdatedAt = s.timer.Now()
+			out, err = s.dao.Update(ctx, tx, o)
+			return err
 		}
-		return o, nil
-	} else {
-		o.UpdatedAt = s.timer.Now()
-		return s.dao.Update(ctx, o)
+	})
+	if err != nil {
+		return Org{}, err
 	}
+	return out, nil
 }
 
 func (s service) Delete(ctx context.Context, o Org) error {
@@ -94,5 +105,11 @@ func (s service) Delete(ctx context.Context, o Org) error {
 		"o":     o,
 	})
 	log.Debug("called")
-	return s.dao.Delete(ctx, o)
+	err := s.txMGR.Do(ctx, func(tx *sqlx.Tx) error {
+		return s.dao.Delete(ctx, tx, o)
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }

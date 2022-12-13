@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/RyanBard/gin-ex/internal/pkg/config"
+	"github.com/RyanBard/gin-ex/internal/pkg/db"
 	"github.com/RyanBard/gin-ex/internal/pkg/idgen"
 	"github.com/RyanBard/gin-ex/internal/pkg/mdlw"
 	"github.com/RyanBard/gin-ex/internal/pkg/org"
@@ -26,7 +27,7 @@ func main() {
 		log.WithError(err).Fatal("invalid log level")
 	}
 	log.SetLevel(logLvl)
-	db := sqlx.MustConnect(
+	dbx := sqlx.MustConnect(
 		"postgres",
 		fmt.Sprintf(
 			"user=%s password=%s dbname=%s sslmode=%s",
@@ -36,10 +37,11 @@ func main() {
 			cfg.DB.SSLMode,
 		),
 	)
-	orgDAO := org.NewOrgDAO(log, db)
+	orgDAO := org.NewOrgDAO(log, dbx)
+	txMGR := db.NewTXMGR(log, dbx)
 	timer := timer.New()
 	idGenerator := idgen.New()
-	orgService := org.NewOrgService(log, orgDAO, timer, idGenerator)
+	orgService := org.NewOrgService(log, orgDAO, txMGR, timer, idGenerator)
 	validate := validator.New()
 	orgCtrl := org.NewOrgController(log, validate, orgService)
 	log.WithField("ctrl", orgCtrl).Info("Here")
