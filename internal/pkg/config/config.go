@@ -21,6 +21,6 @@ type DBConfig struct {
 }
 
 func LoadConfig() (c Config, err error) {
-	err = envconfig.Process("todo", &c)
+	err = envconfig.Process("gin-ex", &c)
 	return c, err
 }
