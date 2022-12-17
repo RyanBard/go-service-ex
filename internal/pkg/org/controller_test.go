@@ -463,11 +463,9 @@ func TestCTRLSave_ServiceError(t *testing.T) {
 }
 
 func TestCTRLDelete(t *testing.T) {
-	o := Org{
-		ID:         "body-foo-id",
-		Name:       "foo-name",
-		Desc:       "foo-desc",
-		IsArchived: true,
+	o := DeleteOrg{
+		ID:      "body-foo-id",
+		Version: 1,
 	}
 
 	c, ms := initCTRL()
@@ -487,12 +485,90 @@ func TestCTRLDelete(t *testing.T) {
 	assert.Equal(t, 204, gc.Writer.Status())
 }
 
+func TestCTRLDelete_ReadError(t *testing.T) {
+	c, _ := initCTRL()
+	gc, w, err := ginCtxWithIOErr("/")
+	assert.Nil(t, err)
+
+	gc.Params = []gin.Param{
+		{
+			Key:   "id",
+			Value: "foo-id",
+		},
+	}
+
+	c.Delete(gc)
+	res := w.Result()
+	bytes, err := io.ReadAll(res.Body)
+	assert.Nil(t, err)
+	var actual map[string]string
+	err = json.Unmarshal(bytes, &actual)
+	assert.Nil(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, 400, gc.Writer.Status())
+	assert.Equal(t, mockIOErrMsg, actual["message"])
+}
+
+func TestCTRLDelete_UnmarshalError(t *testing.T) {
+	malformedBody := "{"
+
+	c, _ := initCTRL()
+	gc, w, err := ginCtxWithStrBody("/", &malformedBody)
+	assert.Nil(t, err)
+
+	gc.Params = []gin.Param{
+		{
+			Key:   "id",
+			Value: "foo-id",
+		},
+	}
+
+	c.Delete(gc)
+	res := w.Result()
+	bytes, err := io.ReadAll(res.Body)
+	assert.Nil(t, err)
+	var actual map[string]string
+	err = json.Unmarshal(bytes, &actual)
+	assert.Nil(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, 400, gc.Writer.Status())
+	assert.Equal(t, "unexpected end of JSON input", actual["message"])
+}
+
+func TestCTRLDelete_ValidationError_MissingVersion(t *testing.T) {
+	o := DeleteOrg{
+		ID: "foo-id",
+	}
+
+	c, _ := initCTRL()
+	gc, w, err := ginCtxWithBody("/", o)
+	assert.Nil(t, err)
+
+	gc.Params = []gin.Param{
+		{
+			Key:   "id",
+			Value: o.ID,
+		},
+	}
+
+	c.Delete(gc)
+	res := w.Result()
+	bytes, err := io.ReadAll(res.Body)
+	assert.Nil(t, err)
+	var actual map[string]string
+	err = json.Unmarshal(bytes, &actual)
+	assert.Nil(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, 400, gc.Writer.Status())
+	errMsg := actual["message"]
+	assert.Contains(t, errMsg, "required")
+	assert.Contains(t, errMsg, "Version")
+}
+
 func TestCTRLDelete_ServiceError(t *testing.T) {
-	o := Org{
-		ID:         "body-foo-id",
-		Name:       "foo-name",
-		Desc:       "foo-desc",
-		IsArchived: true,
+	o := DeleteOrg{
+		ID:      "body-foo-id",
+		Version: 1,
 	}
 
 	c, ms := initCTRL()
@@ -528,7 +604,7 @@ func (m *mockSVC) Save(ctx context.Context, o Org) (Org, error) {
 	return args.Get(0).(Org), args.Error(1)
 }
 
-func (m *mockSVC) Delete(ctx context.Context, o Org) error {
+func (m *mockSVC) Delete(ctx context.Context, o DeleteOrg) error {
 	args := m.Called(ctx, o)
 	return args.Error(0)
 }

@@ -14,7 +14,7 @@ type OrgService interface {
 	GetByID(ctx context.Context, id string) (Org, error)
 	GetAll(ctx context.Context, name string) ([]Org, error)
 	Save(ctx context.Context, o Org) (Org, error)
-	Delete(ctx context.Context, o Org) error
+	Delete(ctx context.Context, o DeleteOrg) error
 }
 
 type ctrl struct {
@@ -125,7 +125,7 @@ func (ctr ctrl) Delete(c *gin.Context) {
 		return
 	}
 	defer c.Request.Body.Close()
-	var o Org
+	var o DeleteOrg
 	if err = json.Unmarshal(bytes, &o); err != nil {
 		log.WithError(err).Error("Unmarshalling failed")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})

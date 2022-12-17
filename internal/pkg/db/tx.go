@@ -18,32 +18,43 @@ func NewTXMGR(log logrus.FieldLogger, db *sqlx.DB) *txmgr {
 	}
 }
 
-func (m txmgr) Do(ctx context.Context, f func(*sqlx.Tx) error) (err error) {
+func (m txmgr) Do(ctx context.Context, joinTX *sqlx.Tx, f func(*sqlx.Tx) error) (err error) {
 	log := m.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Do",
 	})
-	log.Debug("creating tx")
-	tx, err := m.db.Beginx()
-	if err != nil {
-		log.WithError(err).Error("failed to create tx")
-		return err
+	var tx *sqlx.Tx
+	if joinTX == nil {
+		log.Debug("creating tx")
+		tx, err = m.db.Beginx()
+		if err != nil {
+			log.WithError(err).Error("failed to create tx")
+			return err
+		}
+	} else {
+		log.Debug("joining tx")
+		tx = joinTX
 	}
+	defer func() {
+		if joinTX != nil {
+			log.Debug("skipping commit/rollback of joined tx")
+			return
+		}
+		if err != nil {
+			log.WithError(err).Error("f errored, rolling back tx")
+			rbErr := tx.Rollback()
+			if rbErr != nil {
+				log.WithError(rbErr).Error("rollback failed")
+			}
+			return
+		}
+		log.Debug("f succeeded, committing tx")
+		err = tx.Commit()
+		if err != nil {
+			log.WithError(err).Error("failed to commit tx")
+		}
+	}()
 	log.Debug("calling f")
 	err = f(tx)
-	if err != nil {
-		log.WithError(err).Error("f errored, rolling back tx")
-		rollbackErr := tx.Rollback()
-		if rollbackErr != nil {
-			log.WithError(rollbackErr).Error("rollback failed")
-		}
-		return err
-	}
-	log.Debug("f succeeded, committing tx")
-	err = tx.Commit()
-	if err != nil {
-		log.WithError(err).Error("failed to commit tx")
-		return err
-	}
-	return nil
+	return err
 }

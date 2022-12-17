@@ -288,14 +288,9 @@ func TestSVCDelete(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	ctx := context.Background()
-	o := Org{
-		ID:         "foo-id",
-		Name:       "foo-name",
-		Desc:       "foo-desc",
-		IsArchived: true,
-		CreatedAt:  time.UnixMilli(100),
-		UpdatedAt:  time.UnixMilli(200),
-		Version:    2,
+	o := DeleteOrg{
+		ID:      "foo-id",
+		Version: 2,
 	}
 
 	var expectedTX *sqlx.Tx
@@ -309,14 +304,9 @@ func TestSVCDelete_DAOErr(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	ctx := context.Background()
-	o := Org{
-		ID:         "foo-id",
-		Name:       "foo-name",
-		Desc:       "foo-desc",
-		IsArchived: true,
-		CreatedAt:  time.UnixMilli(100),
-		UpdatedAt:  time.UnixMilli(200),
-		Version:    2,
+	o := DeleteOrg{
+		ID:      "foo-id",
+		Version: 2,
 	}
 
 	var expectedTX *sqlx.Tx
@@ -352,12 +342,12 @@ func (d *mockOrgDAO) Update(ctx context.Context, tx *sqlx.Tx, o Org) (Org, error
 	return args.Get(0).(Org), args.Error(1)
 }
 
-func (d *mockOrgDAO) Delete(ctx context.Context, tx *sqlx.Tx, o Org) error {
+func (d *mockOrgDAO) Delete(ctx context.Context, tx *sqlx.Tx, o DeleteOrg) error {
 	args := d.Called(ctx, tx, o)
 	return args.Error(0)
 }
 
-func (m *mockTXManager) Do(ctx context.Context, f func(tx *sqlx.Tx) error) error {
+func (m *mockTXManager) Do(ctx context.Context, tx *sqlx.Tx, f func(tx *sqlx.Tx) error) error {
 	return f(nil)
 }
 

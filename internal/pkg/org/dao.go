@@ -140,7 +140,7 @@ func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input Org) (o Org, err err
 	return input, err
 }
 
-func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, o Org) (err error) {
+func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, o DeleteOrg) (err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Delete",

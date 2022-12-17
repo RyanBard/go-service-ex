@@ -234,6 +234,32 @@ func TestDAOCreate_Err(t *testing.T) {
 	assert.Equal(t, mockErr, err)
 }
 
+func TestDAOCreate_TooManyRowsAffected(t *testing.T) {
+	d, db, md := initDAO()
+
+	o := Org{
+		ID:         id,
+		Name:       name,
+		Desc:       desc,
+		IsArchived: isArchived,
+		CreatedAt:  createdAt,
+		UpdatedAt:  updatedAt,
+		Version:    version,
+	}
+
+	md.ExpectBegin()
+	md.ExpectExec("INSERT INTO orgs").
+		WillReturnResult(sqlmock.NewResult(1, 2))
+
+	tx, err := db.Beginx()
+	assert.Nil(t, err)
+
+	err = d.Create(ctx, tx, o)
+
+	assert.Nil(t, md.ExpectationsWereMet())
+	assert.Contains(t, err.Error(), "unexpected number of rows affected")
+}
+
 func TestDAOUpdate(t *testing.T) {
 	d, db, md := initDAO()
 
@@ -324,7 +350,7 @@ func TestDAOUpdate_OtherErr(t *testing.T) {
 	assert.Equal(t, mockErr, err)
 }
 
-func TestDAODelete(t *testing.T) {
+func TestDAOUpdate_TooManyRowsAffected(t *testing.T) {
 	d, db, md := initDAO()
 
 	o := Org{
@@ -335,6 +361,27 @@ func TestDAODelete(t *testing.T) {
 		CreatedAt:  createdAt,
 		UpdatedAt:  updatedAt,
 		Version:    version,
+	}
+
+	md.ExpectBegin()
+	md.ExpectExec("UPDATE orgs").
+		WillReturnResult(sqlmock.NewResult(1, 2))
+
+	tx, err := db.Beginx()
+	assert.Nil(t, err)
+
+	_, err = d.Update(ctx, tx, o)
+
+	assert.Nil(t, md.ExpectationsWereMet())
+	assert.Contains(t, err.Error(), "unexpected number of rows affected")
+}
+
+func TestDAODelete(t *testing.T) {
+	d, db, md := initDAO()
+
+	o := DeleteOrg{
+		ID:      id,
+		Version: version,
 	}
 
 	md.ExpectBegin()
@@ -353,14 +400,9 @@ func TestDAODelete(t *testing.T) {
 func TestDAODelete_OptimisticLockErr(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
-		ID:         id,
-		Name:       name,
-		Desc:       desc,
-		IsArchived: isArchived,
-		CreatedAt:  createdAt,
-		UpdatedAt:  updatedAt,
-		Version:    version,
+	o := DeleteOrg{
+		ID:      id,
+		Version: version,
 	}
 
 	md.ExpectBegin()
@@ -383,14 +425,9 @@ func TestDAODelete_OptimisticLockErr(t *testing.T) {
 func TestDAODelete_OtherErr(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
-		ID:         id,
-		Name:       name,
-		Desc:       desc,
-		IsArchived: isArchived,
-		CreatedAt:  createdAt,
-		UpdatedAt:  updatedAt,
-		Version:    version,
+	o := DeleteOrg{
+		ID:      id,
+		Version: version,
 	}
 
 	mockErr := errors.New("unit-test mock error")
@@ -405,4 +442,25 @@ func TestDAODelete_OtherErr(t *testing.T) {
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Equal(t, mockErr, err)
+}
+
+func TestDAODelete_TooManyRowsAffected(t *testing.T) {
+	d, db, md := initDAO()
+
+	o := DeleteOrg{
+		ID:      id,
+		Version: version,
+	}
+
+	md.ExpectBegin()
+	md.ExpectExec("DELETE FROM orgs").
+		WillReturnResult(sqlmock.NewResult(1, 2))
+
+	tx, err := db.Beginx()
+	assert.Nil(t, err)
+
+	err = d.Delete(ctx, tx, o)
+
+	assert.Nil(t, md.ExpectationsWereMet())
+	assert.Contains(t, err.Error(), "unexpected number of rows affected")
 }

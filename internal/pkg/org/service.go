@@ -14,11 +14,11 @@ type OrgDAO interface {
 	SearchByName(ctx context.Context, name string) ([]Org, error)
 	Create(ctx context.Context, tx *sqlx.Tx, o Org) error
 	Update(ctx context.Context, tx *sqlx.Tx, o Org) (Org, error)
-	Delete(ctx context.Context, tx *sqlx.Tx, o Org) error
+	Delete(ctx context.Context, tx *sqlx.Tx, o DeleteOrg) error
 }
 
 type TXManager interface {
-	Do(ctx context.Context, f func(*sqlx.Tx) error) error
+	Do(ctx context.Context, tx *sqlx.Tx, f func(*sqlx.Tx) error) error
 }
 
 type Timer interface {
@@ -78,7 +78,7 @@ func (s service) Save(ctx context.Context, o Org) (out Org, err error) {
 		"org":   o,
 	})
 	log.Debug("called")
-	err = s.txMGR.Do(ctx, func(tx *sqlx.Tx) error {
+	err = s.txMGR.Do(ctx, nil, func(tx *sqlx.Tx) error {
 		if o.ID == "" {
 			o.ID = s.idGen.GenID()
 			o.Version = 1
@@ -98,14 +98,14 @@ func (s service) Save(ctx context.Context, o Org) (out Org, err error) {
 	return out, nil
 }
 
-func (s service) Delete(ctx context.Context, o Org) error {
+func (s service) Delete(ctx context.Context, o DeleteOrg) error {
 	log := s.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Delete",
 		"o":     o,
 	})
 	log.Debug("called")
-	err := s.txMGR.Do(ctx, func(tx *sqlx.Tx) error {
+	err := s.txMGR.Do(ctx, nil, func(tx *sqlx.Tx) error {
 		return s.dao.Delete(ctx, tx, o)
 	})
 	if err != nil {

@@ -11,3 +11,8 @@ type Org struct {
 	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
 	Version    int64     `json:"version" db:"version"`
 }
+
+type DeleteOrg struct {
+	ID      string `json:"id" validate:"required" db:"org_id"`
+	Version int64  `json:"version" validate:"required" db:"version"`
+}
