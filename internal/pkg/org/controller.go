@@ -104,7 +104,7 @@ func (ctr ctrl) Save(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
-	log = ctr.log.WithFields(logrus.Fields{
+	log = log.WithFields(logrus.Fields{
 		"org": o,
 	})
 	log.Debug("body processed, about to call service")
@@ -157,7 +157,7 @@ func (ctr ctrl) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
-	log = ctr.log.WithFields(logrus.Fields{
+	log = log.WithFields(logrus.Fields{
 		"org": o,
 	})
 	log.Debug("body processed, about to call service")
