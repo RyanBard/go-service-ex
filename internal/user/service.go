@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/RyanBard/gin-ex/internal/pkg/org"
+	"github.com/RyanBard/gin-ex/internal/org"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 )

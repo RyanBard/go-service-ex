@@ -3,7 +3,7 @@ package user
 import (
 	"context"
 	"errors"
-	"github.com/RyanBard/gin-ex/internal/pkg/org"
+	"github.com/RyanBard/gin-ex/internal/org"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
