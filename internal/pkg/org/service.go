@@ -37,7 +37,7 @@ type service struct {
 	idGen IDGenerator
 }
 
-func NewOrgService(log logrus.FieldLogger, dao OrgDAO, txMGR TXManager, timer Timer, idGen IDGenerator) *service {
+func NewService(log logrus.FieldLogger, dao OrgDAO, txMGR TXManager, timer Timer, idGen IDGenerator) *service {
 	return &service{
 		log:   log.WithField("SVC", "OrgSVC"),
 		dao:   dao,
@@ -78,16 +78,30 @@ func (s service) Save(ctx context.Context, o Org) (out Org, err error) {
 		"org":   o,
 	})
 	log.Debug("called")
+	if o.ID != "" {
+		orgInDB, err := s.GetByID(ctx, o.ID)
+		if err != nil {
+			log.WithError(err).Error("couldn't find org to update")
+			return out, err
+		}
+		if orgInDB.IsSystem {
+			err = CannotModifySysOrgErr{ID: o.ID}
+			return out, err
+		}
+	}
 	err = s.txMGR.Do(ctx, nil, func(tx *sqlx.Tx) error {
 		if o.ID == "" {
 			o.ID = s.idGen.GenID()
 			o.Version = 1
 			o.CreatedAt = s.timer.Now()
+			o.CreatedBy = "TODO"
 			o.UpdatedAt = s.timer.Now()
+			o.UpdatedBy = "TODO"
 			out = o
 			return s.dao.Create(ctx, tx, o)
 		} else {
 			o.UpdatedAt = s.timer.Now()
+			o.UpdatedBy = "TODO"
 			out, err = s.dao.Update(ctx, tx, o)
 			return err
 		}
@@ -105,7 +119,16 @@ func (s service) Delete(ctx context.Context, o DeleteOrg) error {
 		"o":     o,
 	})
 	log.Debug("called")
-	err := s.txMGR.Do(ctx, nil, func(tx *sqlx.Tx) error {
+	orgInDB, err := s.GetByID(ctx, o.ID)
+	if err != nil {
+		log.WithError(err).Error("couldn't find org to delete")
+		return err
+	}
+	if orgInDB.IsSystem {
+		err = CannotModifySysOrgErr{ID: o.ID}
+		return err
+	}
+	err = s.txMGR.Do(ctx, nil, func(tx *sqlx.Tx) error {
 		return s.dao.Delete(ctx, tx, o)
 	})
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"github.com/RyanBard/gin-ex/internal/pkg/mdlw"
 	"github.com/RyanBard/gin-ex/internal/pkg/org"
 	"github.com/RyanBard/gin-ex/internal/pkg/timer"
+	"github.com/RyanBard/gin-ex/internal/pkg/user"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/jmoiron/sqlx"
@@ -27,6 +28,10 @@ func main() {
 		log.WithError(err).Fatal("invalid log level")
 	}
 	log.SetLevel(logLvl)
+
+	timer := timer.New()
+	idGenerator := idgen.New()
+
 	dbx := sqlx.MustConnect(
 		"postgres",
 		fmt.Sprintf(
@@ -37,14 +42,18 @@ func main() {
 			cfg.DB.SSLMode,
 		),
 	)
-	orgDAO := org.NewOrgDAO(log, dbx)
+
 	txMGR := db.NewTXMGR(log, dbx)
-	timer := timer.New()
-	idGenerator := idgen.New()
-	orgService := org.NewOrgService(log, orgDAO, txMGR, timer, idGenerator)
+
 	validate := validator.New()
-	orgCtrl := org.NewOrgController(log, validate, orgService)
-	log.WithField("ctrl", orgCtrl).Info("Here")
+
+	orgDAO := org.NewDAO(log, dbx)
+	orgService := org.NewService(log, orgDAO, txMGR, timer, idGenerator)
+	orgCtrl := org.NewController(log, validate, orgService)
+
+	userDAO := user.NewDAO(log, dbx)
+	userService := user.NewService(log, orgService, userDAO, txMGR, timer, idGenerator)
+	userCtrl := user.NewController(log, validate, userService)
 
 	r := gin.New()
 	r.Use(gin.Recovery())
@@ -70,6 +79,16 @@ func main() {
 	authorized.POST("/orgs/:id", orgCtrl.Save)
 	authorized.PUT("/orgs/:id", orgCtrl.Save)
 	authorized.DELETE("/orgs/:id", orgCtrl.Delete)
+
+	authorized.GET("/orgs/:id/users", userCtrl.GetAllByOrgID)
+
+	authorized.GET("/users/:id", userCtrl.GetByID)
+	authorized.GET("/users", userCtrl.GetAll)
+	authorized.POST("/users", userCtrl.Save)
+	authorized.PUT("/users", userCtrl.Save)
+	authorized.POST("/users/:id", userCtrl.Save)
+	authorized.PUT("/users/:id", userCtrl.Save)
+	authorized.DELETE("/users/:id", userCtrl.Delete)
 
 	r.Run(fmt.Sprintf(":%v", cfg.Port))
 }

@@ -2,25 +2,29 @@ package org
 
 const getByIDQuery = `
 	SELECT
-		o.org_id,
+		o.id,
 		o.name,
 		o.description,
-		o.is_archived,
+		o.is_system,
 		o.created_at,
+		o.created_by,
 		o.updated_at,
+		o.updated_by,
 		o.version
 	FROM orgs o
-	WHERE o.org_id = $1
+	WHERE o.id = $1
 `
 
 const getAllQuery = `
 	SELECT
-		o.org_id,
+		o.id,
 		o.name,
 		o.description,
-		o.is_archived,
+		o.is_system,
 		o.created_at,
+		o.created_by,
 		o.updated_at,
+		o.updated_by,
 		o.version
 	FROM orgs o
 	ORDER BY o.name ASC, o.created_at DESC
@@ -28,12 +32,14 @@ const getAllQuery = `
 
 const searchByNameQuery = `
 	SELECT
-		o.org_id,
+		o.id,
 		o.name,
 		o.description,
-		o.is_archived,
+		o.is_system,
 		o.created_at,
+		o.created_by,
 		o.updated_at,
+		o.updated_by,
 		o.version
 	FROM orgs o
 	WHERE LOWER(o.name) LIKE $1
@@ -42,20 +48,22 @@ const searchByNameQuery = `
 
 const createQuery = `
 	INSERT INTO orgs (
-		org_id,
+		id,
 		name,
 		description,
-		is_archived,
 		created_at,
+		created_by,
 		updated_at,
+		updated_by,
 		version
 	) VALUES (
-		:org_id,
+		:id,
 		:name,
 		:description,
-		:is_archived,
 		:created_at,
+		:created_by,
 		:updated_at,
+		:updated_by,
 		:version
 	)
 `
@@ -64,15 +72,15 @@ const updateQuery = `
 	UPDATE orgs SET
 		name = :name,
 		description = :description,
-		is_archived = :is_archived,
 		updated_at = :updated_at,
+		updated_by = :updated_by,
 		version = 1 + :version
-	WHERE org_id = :org_id
+	WHERE id = :id
 	AND version = :version
 `
 
 const deleteQuery = `
 	DELETE FROM orgs
-	WHERE org_id = :org_id
+	WHERE id = :id
 	AND version = :version
 `

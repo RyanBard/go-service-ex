@@ -1,4 +1,4 @@
-package org
+package user
 
 import (
 	"context"
@@ -11,22 +11,23 @@ import (
 	"net/http"
 )
 
-type OrgService interface {
-	GetByID(ctx context.Context, id string) (Org, error)
-	GetAll(ctx context.Context, name string) ([]Org, error)
-	Save(ctx context.Context, o Org) (Org, error)
-	Delete(ctx context.Context, o DeleteOrg) error
+type UserService interface {
+	GetByID(ctx context.Context, id string) (User, error)
+	GetAll(ctx context.Context) ([]User, error)
+	GetAllByOrgID(ctx context.Context, orgID string) ([]User, error)
+	Save(ctx context.Context, u User) (User, error)
+	Delete(ctx context.Context, u DeleteUser) error
 }
 
 type ctrl struct {
 	log      logrus.FieldLogger
 	validate *validator.Validate
-	service  OrgService
+	service  UserService
 }
 
-func NewController(log logrus.FieldLogger, validate *validator.Validate, service OrgService) *ctrl {
+func NewController(log logrus.FieldLogger, validate *validator.Validate, service UserService) *ctrl {
 	return &ctrl{
-		log:      log.WithField("SVC", "OrgCTL"),
+		log:      log.WithField("SVC", "UserCTL"),
 		validate: validate,
 		service:  service,
 	}
@@ -40,7 +41,7 @@ func (ctr ctrl) GetByID(c *gin.Context) {
 		"id":    id,
 	})
 	log.Debug("called")
-	o, err := ctr.service.GetByID(c.Request.Context(), id)
+	u, err := ctr.service.GetByID(c.Request.Context(), id)
 	if err != nil {
 		log.WithError(err).Error("Service call failed")
 		var statusCode int
@@ -53,26 +54,42 @@ func (ctr ctrl) GetByID(c *gin.Context) {
 		c.JSON(statusCode, gin.H{"message": err.Error()})
 		return
 	}
-	log.WithField("org", o).Debug("Success")
-	c.JSON(http.StatusOK, o)
+	log.WithField("user", u).Debug("Success")
+	c.JSON(http.StatusOK, u)
 }
 
 func (ctr ctrl) GetAll(c *gin.Context) {
-	name := c.Query("name")
 	log := ctr.log.WithFields(logrus.Fields{
 		"reqID": c.Request.Context().Value("reqID"),
 		"fn":    "GetAll",
-		"name":  name,
 	})
 	log.Debug("called")
-	o, err := ctr.service.GetAll(c.Request.Context(), name)
+	u, err := ctr.service.GetAll(c.Request.Context())
 	if err != nil {
 		log.WithError(err).Error("Service call failed")
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	log.WithField("orgsLen", len(o)).Debug("Success")
-	c.JSON(http.StatusOK, o)
+	log.WithField("usersLen", len(u)).Debug("Success")
+	c.JSON(http.StatusOK, u)
+}
+
+func (ctr ctrl) GetAllByOrgID(c *gin.Context) {
+	orgID := c.Param("id")
+	log := ctr.log.WithFields(logrus.Fields{
+		"reqID": c.Request.Context().Value("reqID"),
+		"fn":    "GetAll",
+		"id":    orgID,
+	})
+	log.Debug("called")
+	u, err := ctr.service.GetAllByOrgID(c.Request.Context(), orgID)
+	if err != nil {
+		log.WithError(err).Error("Service call failed")
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	log.WithField("usersLen", len(u)).Debug("Success")
+	c.JSON(http.StatusOK, u)
 }
 
 func (ctr ctrl) Save(c *gin.Context) {
@@ -90,34 +107,38 @@ func (ctr ctrl) Save(c *gin.Context) {
 		return
 	}
 	defer c.Request.Body.Close()
-	var o Org
-	if err = json.Unmarshal(bytes, &o); err != nil {
+	var u User
+	if err = json.Unmarshal(bytes, &u); err != nil {
 		log.WithError(err).Error("Unmarshalling failed")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 	if pathID != "" {
-		o.ID = pathID
+		u.ID = pathID
 	}
-	if err = ctr.validate.Struct(o); err != nil {
-		log.WithError(err).Error("Invalid org body")
+	if err = ctr.validate.Struct(u); err != nil {
+		log.WithError(err).Error("Invalid user body")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 	log = ctr.log.WithFields(logrus.Fields{
-		"org": o,
+		"user": u,
 	})
 	log.Debug("body processed, about to call service")
-	o, err = ctr.service.Save(c.Request.Context(), o)
+	u, err = ctr.service.Save(c.Request.Context(), u)
 	if err != nil {
 		log.WithError(err).Error("Service call failed")
 		var statusCode int
 		var notFound NotFoundErr
-		var modSysOrg CannotModifySysOrgErr
+		var modSysUser CannotModifySysUserErr
+		var assocSysOrg CannotAssociateSysOrgErr
 		if errors.As(err, &notFound) {
 			statusCode = http.StatusNotFound
-		} else if errors.As(err, &modSysOrg) {
+		} else if errors.As(err, &modSysUser) {
 			statusCode = http.StatusForbidden
+		} else if errors.As(err, &assocSysOrg) {
+			// TODO - you could choose to 404 this to obfuscate for security reasons, but I'm letting error details go through in the response atm, so probably not worth it right now
+			statusCode = http.StatusBadRequest
 		} else {
 			statusCode = http.StatusInternalServerError
 		}
@@ -125,7 +146,7 @@ func (ctr ctrl) Save(c *gin.Context) {
 		return
 	}
 	log.Debug("Success")
-	c.JSON(http.StatusOK, o)
+	c.JSON(http.StatusOK, u)
 }
 
 func (ctr ctrl) Delete(c *gin.Context) {
@@ -143,33 +164,32 @@ func (ctr ctrl) Delete(c *gin.Context) {
 		return
 	}
 	defer c.Request.Body.Close()
-	var o DeleteOrg
-	if err = json.Unmarshal(bytes, &o); err != nil {
+	var u DeleteUser
+	if err = json.Unmarshal(bytes, &u); err != nil {
 		log.WithError(err).Error("Unmarshalling failed")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 	if pathID != "" {
-		o.ID = pathID
+		u.ID = pathID
 	}
-	if err = ctr.validate.Struct(o); err != nil {
-		log.WithError(err).Error("Invalid org body")
+	if err = ctr.validate.Struct(u); err != nil {
+		log.WithError(err).Error("Invalid user body")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 	log = ctr.log.WithFields(logrus.Fields{
-		"org": o,
+		"user": u,
 	})
 	log.Debug("body processed, about to call service")
-	if err := ctr.service.Delete(c.Request.Context(), o); err != nil {
+	if err := ctr.service.Delete(c.Request.Context(), u); err != nil {
 		log.WithError(err).Error("Service call failed")
 		var statusCode int
 		var notFound NotFoundErr
-		var modSysOrg CannotModifySysOrgErr
+		var modSysUser CannotModifySysUserErr
 		if errors.As(err, &notFound) {
-			c.Status(http.StatusNoContent)
-			return
-		} else if errors.As(err, &modSysOrg) {
+			statusCode = http.StatusNotFound
+		} else if errors.As(err, &modSysUser) {
 			statusCode = http.StatusForbidden
 		} else {
 			statusCode = http.StatusInternalServerError

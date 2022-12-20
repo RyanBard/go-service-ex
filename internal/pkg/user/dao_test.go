@@ -1,4 +1,4 @@
-package org
+package user
 
 import (
 	"context"
@@ -23,25 +23,37 @@ var (
 const (
 	partialName = "foo"
 	id          = "foo-id"
+	orgID       = "foo-org-id"
 	name        = "foo-name"
-	desc        = "foo-desc"
+	email       = "foo@bar.com"
+	isAdmin     = true
+	createdBy   = "TODO"
+	updatedBy   = "TODO"
 	version     = int64(3)
 )
 
 func getRows() *sqlmock.Rows {
 	return sqlmock.NewRows([]string{
 		"id",
+		"org_id",
 		"name",
-		"description",
+		"email",
+		"is_admin",
 		"created_at",
+		"created_by",
 		"updated_at",
+		"updated_by",
 		"version",
 	}).AddRow(
 		id,
+		orgID,
 		name,
-		desc,
+		email,
+		isAdmin,
 		createdAt,
+		createdBy,
 		updatedAt,
+		updatedBy,
 		version,
 	)
 }
@@ -70,10 +82,14 @@ func TestDAOGetByID(t *testing.T) {
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Nil(t, err)
 	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, orgID, actual.OrgID)
 	assert.Equal(t, name, actual.Name)
-	assert.Equal(t, desc, actual.Desc)
+	assert.Equal(t, email, actual.Email)
+	assert.Equal(t, isAdmin, actual.IsAdmin)
 	assert.Equal(t, createdAt, actual.CreatedAt)
+	assert.Equal(t, createdBy, actual.CreatedBy)
 	assert.Equal(t, updatedAt, actual.UpdatedAt)
+	assert.Equal(t, updatedBy, actual.UpdatedBy)
 	assert.Equal(t, version, actual.Version)
 }
 
@@ -120,10 +136,14 @@ func TestDAOGetAll(t *testing.T) {
 	assert.Equal(t, 1, len(actuals))
 	actual := actuals[0]
 	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, orgID, actual.OrgID)
 	assert.Equal(t, name, actual.Name)
-	assert.Equal(t, desc, actual.Desc)
+	assert.Equal(t, email, actual.Email)
+	assert.Equal(t, isAdmin, actual.IsAdmin)
 	assert.Equal(t, createdAt, actual.CreatedAt)
+	assert.Equal(t, createdBy, actual.CreatedBy)
 	assert.Equal(t, updatedAt, actual.UpdatedAt)
+	assert.Equal(t, updatedBy, actual.UpdatedBy)
 	assert.Equal(t, version, actual.Version)
 }
 
@@ -140,36 +160,40 @@ func TestDAOGetAll_Error(t *testing.T) {
 	assert.Equal(t, mockErr, err)
 }
 
-func TestDAOSearchByName(t *testing.T) {
+func TestDAOGetAllByOrgID(t *testing.T) {
 	d, _, md := initDAO()
 
-	md.ExpectQuery(regexp.QuoteMeta(searchByNameQuery)).
-		WithArgs("%" + partialName + "%").
+	md.ExpectQuery(regexp.QuoteMeta(getAllByOrgIDQuery)).
+		WithArgs(orgID).
 		WillReturnRows(getRows())
 
-	actuals, err := d.SearchByName(ctx, partialName)
+	actuals, err := d.GetAllByOrgID(ctx, orgID)
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(actuals))
 	actual := actuals[0]
 	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, orgID, actual.OrgID)
 	assert.Equal(t, name, actual.Name)
-	assert.Equal(t, desc, actual.Desc)
+	assert.Equal(t, email, actual.Email)
+	assert.Equal(t, isAdmin, actual.IsAdmin)
 	assert.Equal(t, createdAt, actual.CreatedAt)
+	assert.Equal(t, createdBy, actual.CreatedBy)
 	assert.Equal(t, updatedAt, actual.UpdatedAt)
+	assert.Equal(t, updatedBy, actual.UpdatedBy)
 	assert.Equal(t, version, actual.Version)
 }
 
-func TestDAOSearchByName_Error(t *testing.T) {
+func TestDAOGetAllByOrgID_Error(t *testing.T) {
 	d, _, md := initDAO()
 
 	mockErr := errors.New("unit-test mock error")
-	md.ExpectQuery(regexp.QuoteMeta(searchByNameQuery)).
-		WithArgs("%" + partialName + "%").
+	md.ExpectQuery(regexp.QuoteMeta(getAllByOrgIDQuery)).
+		WithArgs(orgID).
 		WillReturnError(mockErr)
 
-	_, err := d.SearchByName(ctx, partialName)
+	_, err := d.GetAllByOrgID(ctx, orgID)
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Equal(t, mockErr, err)
@@ -178,23 +202,27 @@ func TestDAOSearchByName_Error(t *testing.T) {
 func TestDAOCreate(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
+	u := User{
 		ID:        id,
+		OrgID:     orgID,
 		Name:      name,
-		Desc:      desc,
+		Email:     email,
+		IsAdmin:   isAdmin,
 		CreatedAt: createdAt,
+		CreatedBy: createdBy,
 		UpdatedAt: updatedAt,
+		UpdatedBy: updatedBy,
 		Version:   version,
 	}
 
 	md.ExpectBegin()
-	md.ExpectExec("INSERT INTO orgs").
+	md.ExpectExec("INSERT INTO users").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	tx, err := db.Beginx()
 	assert.Nil(t, err)
 
-	err = d.Create(ctx, tx, o)
+	err = d.Create(ctx, tx, u)
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Nil(t, err)
@@ -203,24 +231,28 @@ func TestDAOCreate(t *testing.T) {
 func TestDAOCreate_Err(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
+	u := User{
 		ID:        id,
+		OrgID:     orgID,
 		Name:      name,
-		Desc:      desc,
+		Email:     email,
+		IsAdmin:   isAdmin,
 		CreatedAt: createdAt,
+		CreatedBy: createdBy,
 		UpdatedAt: updatedAt,
+		UpdatedBy: updatedBy,
 		Version:   version,
 	}
 
 	mockErr := errors.New("unit-test mock error")
 	md.ExpectBegin()
-	md.ExpectExec("INSERT INTO orgs").
+	md.ExpectExec("INSERT INTO users").
 		WillReturnError(mockErr)
 
 	tx, err := db.Beginx()
 	assert.Nil(t, err)
 
-	err = d.Create(ctx, tx, o)
+	err = d.Create(ctx, tx, u)
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Equal(t, mockErr, err)
@@ -229,23 +261,27 @@ func TestDAOCreate_Err(t *testing.T) {
 func TestDAOCreate_TooManyRowsAffected(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
+	u := User{
 		ID:        id,
+		OrgID:     orgID,
 		Name:      name,
-		Desc:      desc,
+		Email:     email,
+		IsAdmin:   isAdmin,
 		CreatedAt: createdAt,
+		CreatedBy: createdBy,
 		UpdatedAt: updatedAt,
+		UpdatedBy: updatedBy,
 		Version:   version,
 	}
 
 	md.ExpectBegin()
-	md.ExpectExec("INSERT INTO orgs").
+	md.ExpectExec("INSERT INTO users").
 		WillReturnResult(sqlmock.NewResult(1, 2))
 
 	tx, err := db.Beginx()
 	assert.Nil(t, err)
 
-	err = d.Create(ctx, tx, o)
+	err = d.Create(ctx, tx, u)
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Contains(t, err.Error(), "unexpected number of rows affected")
@@ -254,54 +290,66 @@ func TestDAOCreate_TooManyRowsAffected(t *testing.T) {
 func TestDAOUpdate(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
+	u := User{
 		ID:        id,
+		OrgID:     orgID,
 		Name:      name,
-		Desc:      desc,
+		Email:     email,
+		IsAdmin:   isAdmin,
 		CreatedAt: createdAt,
+		CreatedBy: createdBy,
 		UpdatedAt: updatedAt,
+		UpdatedBy: updatedBy,
 		Version:   version,
 	}
 
 	md.ExpectBegin()
-	md.ExpectExec("UPDATE orgs").
+	md.ExpectExec("UPDATE users").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	tx, err := db.Beginx()
 	assert.Nil(t, err)
 
-	actual, err := d.Update(ctx, tx, o)
+	actual, err := d.Update(ctx, tx, u)
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Nil(t, err)
-	assert.Equal(t, o.ID, actual.ID)
-	assert.Equal(t, o.Name, actual.Name)
-	assert.Equal(t, o.Desc, actual.Desc)
-	assert.Equal(t, o.CreatedAt, actual.CreatedAt)
-	assert.Equal(t, o.UpdatedAt, actual.UpdatedAt)
-	assert.Equal(t, o.Version+1, actual.Version)
+	assert.Equal(t, u.ID, actual.ID)
+	assert.Equal(t, u.OrgID, actual.OrgID)
+	assert.Equal(t, u.Name, actual.Name)
+	assert.Equal(t, u.Email, actual.Email)
+	assert.Equal(t, u.IsAdmin, actual.IsAdmin)
+	assert.Equal(t, u.CreatedAt, actual.CreatedAt)
+	assert.Equal(t, u.CreatedBy, actual.CreatedBy)
+	assert.Equal(t, u.UpdatedAt, actual.UpdatedAt)
+	assert.Equal(t, u.UpdatedBy, actual.UpdatedBy)
+	assert.Equal(t, u.Version+1, actual.Version)
 }
 
 func TestDAOUpdate_OptimisticLockErr(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
+	u := User{
 		ID:        id,
+		OrgID:     orgID,
 		Name:      name,
-		Desc:      desc,
+		Email:     email,
+		IsAdmin:   isAdmin,
 		CreatedAt: createdAt,
+		CreatedBy: createdBy,
 		UpdatedAt: updatedAt,
+		UpdatedBy: updatedBy,
 		Version:   version,
 	}
 
 	md.ExpectBegin()
-	md.ExpectExec("UPDATE orgs").
+	md.ExpectExec("UPDATE users").
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
 	tx, err := db.Beginx()
 	assert.Nil(t, err)
 
-	_, err = d.Update(ctx, tx, o)
+	_, err = d.Update(ctx, tx, u)
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	var expected OptimisticLockErr
@@ -314,24 +362,28 @@ func TestDAOUpdate_OptimisticLockErr(t *testing.T) {
 func TestDAOUpdate_OtherErr(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
+	u := User{
 		ID:        id,
+		OrgID:     orgID,
 		Name:      name,
-		Desc:      desc,
+		Email:     email,
+		IsAdmin:   isAdmin,
 		CreatedAt: createdAt,
+		CreatedBy: createdBy,
 		UpdatedAt: updatedAt,
+		UpdatedBy: updatedBy,
 		Version:   version,
 	}
 
 	mockErr := errors.New("unit-test mock error")
 	md.ExpectBegin()
-	md.ExpectExec("UPDATE orgs").
+	md.ExpectExec("UPDATE users").
 		WillReturnError(mockErr)
 
 	tx, err := db.Beginx()
 	assert.Nil(t, err)
 
-	_, err = d.Update(ctx, tx, o)
+	_, err = d.Update(ctx, tx, u)
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Equal(t, mockErr, err)
@@ -340,23 +392,27 @@ func TestDAOUpdate_OtherErr(t *testing.T) {
 func TestDAOUpdate_TooManyRowsAffected(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
+	u := User{
 		ID:        id,
+		OrgID:     orgID,
 		Name:      name,
-		Desc:      desc,
+		Email:     email,
+		IsAdmin:   isAdmin,
 		CreatedAt: createdAt,
+		CreatedBy: createdBy,
 		UpdatedAt: updatedAt,
+		UpdatedBy: updatedBy,
 		Version:   version,
 	}
 
 	md.ExpectBegin()
-	md.ExpectExec("UPDATE orgs").
+	md.ExpectExec("UPDATE users").
 		WillReturnResult(sqlmock.NewResult(1, 2))
 
 	tx, err := db.Beginx()
 	assert.Nil(t, err)
 
-	_, err = d.Update(ctx, tx, o)
+	_, err = d.Update(ctx, tx, u)
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Contains(t, err.Error(), "unexpected number of rows affected")
@@ -365,19 +421,19 @@ func TestDAOUpdate_TooManyRowsAffected(t *testing.T) {
 func TestDAODelete(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := DeleteOrg{
+	u := DeleteUser{
 		ID:      id,
 		Version: version,
 	}
 
 	md.ExpectBegin()
-	md.ExpectExec("DELETE FROM orgs").
+	md.ExpectExec("DELETE FROM users").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	tx, err := db.Beginx()
 	assert.Nil(t, err)
 
-	err = d.Delete(ctx, tx, o)
+	err = d.Delete(ctx, tx, u)
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Nil(t, err)
@@ -386,19 +442,19 @@ func TestDAODelete(t *testing.T) {
 func TestDAODelete_OptimisticLockErr(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := DeleteOrg{
+	u := DeleteUser{
 		ID:      id,
 		Version: version,
 	}
 
 	md.ExpectBegin()
-	md.ExpectExec("DELETE FROM orgs").
+	md.ExpectExec("DELETE FROM users").
 		WillReturnResult(sqlmock.NewResult(0, 0))
 
 	tx, err := db.Beginx()
 	assert.Nil(t, err)
 
-	err = d.Delete(ctx, tx, o)
+	err = d.Delete(ctx, tx, u)
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	var expected OptimisticLockErr
@@ -411,20 +467,20 @@ func TestDAODelete_OptimisticLockErr(t *testing.T) {
 func TestDAODelete_OtherErr(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := DeleteOrg{
+	u := DeleteUser{
 		ID:      id,
 		Version: version,
 	}
 
 	mockErr := errors.New("unit-test mock error")
 	md.ExpectBegin()
-	md.ExpectExec("DELETE FROM orgs").
+	md.ExpectExec("DELETE FROM users").
 		WillReturnError(mockErr)
 
 	tx, err := db.Beginx()
 	assert.Nil(t, err)
 
-	err = d.Delete(ctx, tx, o)
+	err = d.Delete(ctx, tx, u)
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Equal(t, mockErr, err)
@@ -433,19 +489,19 @@ func TestDAODelete_OtherErr(t *testing.T) {
 func TestDAODelete_TooManyRowsAffected(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := DeleteOrg{
+	u := DeleteUser{
 		ID:      id,
 		Version: version,
 	}
 
 	md.ExpectBegin()
-	md.ExpectExec("DELETE FROM orgs").
+	md.ExpectExec("DELETE FROM users").
 		WillReturnResult(sqlmock.NewResult(1, 2))
 
 	tx, err := db.Beginx()
 	assert.Nil(t, err)
 
-	err = d.Delete(ctx, tx, o)
+	err = d.Delete(ctx, tx, u)
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.Contains(t, err.Error(), "unexpected number of rows affected")

@@ -1,4 +1,4 @@
-package org
+package user
 
 import (
 	"context"
@@ -16,67 +16,67 @@ type dao struct {
 
 func NewDAO(log logrus.FieldLogger, db *sqlx.DB) *dao {
 	return &dao{
-		log: log.WithField("SVC", "OrgDAO"),
+		log: log.WithField("SVC", "UserDAO"),
 		db:  db,
 	}
 }
 
-func (d dao) GetByID(ctx context.Context, id string) (o Org, err error) {
+func (d dao) GetByID(ctx context.Context, id string) (u User, err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "GetByID",
 		"id":    id,
 	})
 	log.Debug("called")
-	err = d.db.GetContext(ctx, &o, getByIDQuery, id)
+	err = d.db.GetContext(ctx, &u, getByIDQuery, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return o, NotFoundErr{ID: id}
+			return u, NotFoundErr{ID: id}
 		}
-		return o, err
+		return u, err
 	}
 	log.Debug("success")
-	return o, err
+	return u, err
 }
 
-func (d dao) GetAll(ctx context.Context) (orgs []Org, err error) {
+func (d dao) GetAll(ctx context.Context) (users []User, err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "GetAll",
 	})
 	log.Debug("called")
-	err = d.db.SelectContext(ctx, &orgs, getAllQuery)
+	err = d.db.SelectContext(ctx, &users, getAllQuery)
 	if err != nil {
-		return orgs, err
+		return users, err
 	}
 	log.Debug("success")
-	return orgs, err
+	return users, err
 }
 
-func (d dao) SearchByName(ctx context.Context, name string) (orgs []Org, err error) {
+func (d dao) GetAllByOrgID(ctx context.Context, orgID string) (users []User, err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
-		"fn":    "SearchByName",
-		"name":  name,
+		"fn":    "GetAllByOrgID",
+		"orgID": orgID,
 	})
 	log.Debug("called")
-	orgs = []Org{}
-	err = d.db.SelectContext(ctx, &orgs, searchByNameQuery, "%"+name+"%")
+	users = []User{}
+	err = d.db.SelectContext(ctx, &users, getAllByOrgIDQuery, orgID)
 	if err != nil {
-		return orgs, err
+		return users, err
 	}
 	log.Debug("success")
-	return orgs, err
+	return users, err
 }
 
-func (d dao) Create(ctx context.Context, tx *sqlx.Tx, o Org) (err error) {
+func (d dao) Create(ctx context.Context, tx *sqlx.Tx, u User) (err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Create",
-		"org":   o,
+		"user":  u,
 	})
 	log.Debug("called")
-	r, err := tx.NamedExecContext(ctx, createQuery, &o)
+	r, err := tx.NamedExecContext(ctx, createQuery, &u)
 	if err != nil {
 		log.WithError(err).Error("failed to execute query")
 		return err
@@ -94,43 +94,43 @@ func (d dao) Create(ctx context.Context, tx *sqlx.Tx, o Org) (err error) {
 	return err
 }
 
-func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input Org) (o Org, err error) {
+func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input User) (u User, err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Update",
-		"org":   input,
+		"user":  input,
 	})
 	log.Debug("called")
 	r, err := tx.NamedExecContext(ctx, updateQuery, &input)
 	if err != nil {
 		log.WithError(err).Error("failed to execute query")
-		return o, err
+		return u, err
 	}
 	log.Debug("query ran")
 	numRows, err := r.RowsAffected()
 	if err != nil {
 		log.WithError(err).Error("failed to get number of rows affected")
-		return o, err
+		return u, err
 	}
 	if numRows == 0 {
-		return o, OptimisticLockErr{ID: input.ID, Version: input.Version}
+		return u, OptimisticLockErr{ID: input.ID, Version: input.Version}
 	}
 	if numRows != 1 {
-		return o, errors.New(fmt.Sprintf("unexpected number of rows affected: %d", numRows))
+		return u, errors.New(fmt.Sprintf("unexpected number of rows affected: %d", numRows))
 	}
 	log.Debug("success")
 	input.Version = input.Version + 1
 	return input, err
 }
 
-func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, o DeleteOrg) (err error) {
+func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, u DeleteUser) (err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Delete",
-		"o":     o,
+		"u":     u,
 	})
 	log.Debug("called")
-	r, err := tx.NamedExecContext(ctx, deleteQuery, &o)
+	r, err := tx.NamedExecContext(ctx, deleteQuery, &u)
 	if err != nil {
 		log.WithError(err).Error("failed to execute query")
 		return err
@@ -142,7 +142,7 @@ func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, o DeleteOrg) (err error) {
 		return err
 	}
 	if numRows == 0 {
-		return OptimisticLockErr{ID: o.ID, Version: o.Version}
+		return OptimisticLockErr{ID: u.ID, Version: u.Version}
 	}
 	if numRows != 1 {
 		return errors.New(fmt.Sprintf("unexpected number of rows affected: %d", numRows))
