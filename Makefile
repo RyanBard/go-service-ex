@@ -1,4 +1,4 @@
-.PHONY: default clean deps pretty test start curl coverage coverage-profile coverage-html
+.PHONY: default clean deps pretty test start curl coverage coverage-profile coverage-html integration-test
 
 default: clean deps pretty build test
 
@@ -13,6 +13,9 @@ pretty:
 
 build:
 	go build -v ./...
+
+integration-test:
+	go test --tags=integration --count=1 ./it/...
 
 test:
 	go test ./...

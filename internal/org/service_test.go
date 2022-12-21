@@ -3,10 +3,12 @@ package org
 import (
 	"context"
 	"errors"
+	"github.com/RyanBard/gin-ex/pkg/org"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"strings"
 	"testing"
 	"time"
 )
@@ -44,7 +46,7 @@ func TestSVCGetByID(t *testing.T) {
 	ctx := context.Background()
 	id := "foo-id"
 
-	mockRes := Org{
+	mockRes := org.Org{
 		ID:   id,
 		Name: "foo-name",
 		Desc: "foo-desc",
@@ -64,12 +66,12 @@ func TestSVCGetByID_DAOErr(t *testing.T) {
 	id := "foo-id"
 
 	mockErr := errors.New("unit-test mock error")
-	md.On("GetByID", ctx, id).Return(Org{}, mockErr)
+	md.On("GetByID", ctx, id).Return(org.Org{}, mockErr)
 
 	actual, err := s.GetByID(ctx, id)
 
 	assert.Equal(t, mockErr, err)
-	assert.Equal(t, Org{}, actual)
+	assert.Equal(t, org.Org{}, actual)
 }
 
 func TestSVCGetAll(t *testing.T) {
@@ -78,7 +80,7 @@ func TestSVCGetAll(t *testing.T) {
 	ctx := context.Background()
 	name := ""
 
-	mockRes := []Org{
+	mockRes := []org.Org{
 		{
 			ID:   "foo-id",
 			Name: "foo-name",
@@ -100,12 +102,12 @@ func TestSVCGetAll_DAOErr(t *testing.T) {
 	name := ""
 
 	mockErr := errors.New("unit-test mock error")
-	md.On("GetAll", ctx).Return([]Org{}, mockErr)
+	md.On("GetAll", ctx).Return([]org.Org{}, mockErr)
 
 	actual, err := s.GetAll(ctx, name)
 
 	assert.Equal(t, mockErr, err)
-	assert.Equal(t, []Org{}, actual)
+	assert.Equal(t, []org.Org{}, actual)
 }
 
 func TestSVCGetAll_NameSpecified(t *testing.T) {
@@ -114,7 +116,7 @@ func TestSVCGetAll_NameSpecified(t *testing.T) {
 	ctx := context.Background()
 	name := "foo"
 
-	mockRes := []Org{
+	mockRes := []org.Org{
 		{
 			ID:   "foo-id",
 			Name: "foo-name",
@@ -129,6 +131,27 @@ func TestSVCGetAll_NameSpecified(t *testing.T) {
 	assert.Equal(t, mockRes, actual)
 }
 
+func TestSVCGetAll_UpperCaseNameSpecified(t *testing.T) {
+	s, md, _, _, _ := initSVC()
+
+	ctx := context.Background()
+	name := "FOO"
+
+	mockRes := []org.Org{
+		{
+			ID:   "foo-id",
+			Name: "foo-name",
+			Desc: "foo-desc",
+		},
+	}
+	md.On("SearchByName", ctx, strings.ToLower(name)).Return(mockRes, nil)
+
+	actual, err := s.GetAll(ctx, name)
+
+	assert.Nil(t, err)
+	assert.Equal(t, mockRes, actual)
+}
+
 func TestSVCGetAll_NameSpecified_DAOErr(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
@@ -136,19 +159,19 @@ func TestSVCGetAll_NameSpecified_DAOErr(t *testing.T) {
 	name := "foo"
 
 	mockErr := errors.New("unit-test mock error")
-	md.On("SearchByName", ctx, name).Return([]Org{}, mockErr)
+	md.On("SearchByName", ctx, name).Return([]org.Org{}, mockErr)
 
 	actual, err := s.GetAll(ctx, name)
 
 	assert.Equal(t, mockErr, err)
-	assert.Equal(t, []Org{}, actual)
+	assert.Equal(t, []org.Org{}, actual)
 }
 
 func TestSVCSave_NoID(t *testing.T) {
 	s, md, _, mt, mi := initSVC()
 
 	ctx := context.Background()
-	o := Org{
+	o := org.Org{
 		Name:      "foo-name",
 		Desc:      "foo-desc",
 		CreatedAt: time.UnixMilli(100),
@@ -164,7 +187,7 @@ func TestSVCSave_NoID(t *testing.T) {
 	id := "foo-id"
 	mi.On("GenID").Return(id)
 
-	expectedOrg := Org{
+	expectedOrg := org.Org{
 		ID:        id,
 		Name:      o.Name,
 		Desc:      o.Desc,
@@ -187,7 +210,7 @@ func TestSVCSave_NoID_DAOErr(t *testing.T) {
 	s, md, _, mt, mi := initSVC()
 
 	ctx := context.Background()
-	o := Org{
+	o := org.Org{
 		Name: "foo-name",
 		Desc: "foo-desc",
 	}
@@ -205,14 +228,14 @@ func TestSVCSave_NoID_DAOErr(t *testing.T) {
 	actual, err := s.Save(ctx, o)
 
 	assert.Equal(t, mockErr, err)
-	assert.Equal(t, Org{}, actual)
+	assert.Equal(t, org.Org{}, actual)
 }
 
 func TestSVCSave_ID(t *testing.T) {
 	s, md, _, mt, _ := initSVC()
 
 	ctx := context.Background()
-	o := Org{
+	o := org.Org{
 		ID:        "foo-id",
 		Name:      "foo-name",
 		Desc:      "foo-desc",
@@ -224,7 +247,7 @@ func TestSVCSave_ID(t *testing.T) {
 	now := time.UnixMilli(200)
 	mt.On("Now").Return(now)
 
-	expectedOrg := Org{
+	expectedOrg := org.Org{
 		ID:        o.ID,
 		Name:      o.Name,
 		Desc:      o.Desc,
@@ -233,7 +256,7 @@ func TestSVCSave_ID(t *testing.T) {
 		Version:   o.Version,
 	}
 	var expectedTX *sqlx.Tx
-	md.On("GetByID", ctx, o.ID).Return(Org{}, nil)
+	md.On("GetByID", ctx, o.ID).Return(org.Org{}, nil)
 	md.On("Update", ctx, expectedTX, expectedOrg).Return(expectedOrg, nil)
 
 	actual, err := s.Save(ctx, o)
@@ -246,7 +269,7 @@ func TestSVCSave_ID_DAOUpdateErr(t *testing.T) {
 	s, md, _, mt, _ := initSVC()
 
 	ctx := context.Background()
-	o := Org{
+	o := org.Org{
 		ID:        "foo-id",
 		Name:      "foo-name",
 		Desc:      "foo-desc",
@@ -260,20 +283,20 @@ func TestSVCSave_ID_DAOUpdateErr(t *testing.T) {
 
 	var expectedTX *sqlx.Tx
 	mockErr := errors.New("unit-test mock error")
-	md.On("GetByID", ctx, o.ID).Return(Org{}, nil)
-	md.On("Update", ctx, expectedTX, mock.Anything).Return(Org{}, mockErr)
+	md.On("GetByID", ctx, o.ID).Return(org.Org{}, nil)
+	md.On("Update", ctx, expectedTX, mock.Anything).Return(org.Org{}, mockErr)
 
 	actual, err := s.Save(ctx, o)
 
 	assert.Equal(t, mockErr, err)
-	assert.Equal(t, Org{}, actual)
+	assert.Equal(t, org.Org{}, actual)
 }
 
 func TestSVCSave_ID_OrgNotFound(t *testing.T) {
 	s, md, _, mt, _ := initSVC()
 
 	ctx := context.Background()
-	o := Org{
+	o := org.Org{
 		ID:        "foo-id",
 		Name:      "foo-name",
 		Desc:      "foo-desc",
@@ -289,19 +312,19 @@ func TestSVCSave_ID_OrgNotFound(t *testing.T) {
 	mockErr := NotFoundErr{
 		ID: o.ID,
 	}
-	md.On("GetByID", ctx, o.ID).Return(Org{}, mockErr)
+	md.On("GetByID", ctx, o.ID).Return(org.Org{}, mockErr)
 
 	actual, err := s.Save(ctx, o)
 
 	assert.Equal(t, mockErr, err)
-	assert.Equal(t, Org{}, actual)
+	assert.Equal(t, org.Org{}, actual)
 }
 
 func TestSVCSave_ID_SystemOrgNotAllowed(t *testing.T) {
 	s, md, _, mt, _ := initSVC()
 
 	ctx := context.Background()
-	o := Org{
+	o := org.Org{
 		ID:        "foo-id",
 		Name:      "foo-name",
 		Desc:      "foo-desc",
@@ -314,7 +337,7 @@ func TestSVCSave_ID_SystemOrgNotAllowed(t *testing.T) {
 	now := time.UnixMilli(200)
 	mt.On("Now").Return(now)
 
-	md.On("GetByID", ctx, o.ID).Return(Org{IsSystem: true}, nil)
+	md.On("GetByID", ctx, o.ID).Return(org.Org{IsSystem: true}, nil)
 
 	actual, err := s.Save(ctx, o)
 
@@ -324,20 +347,20 @@ func TestSVCSave_ID_SystemOrgNotAllowed(t *testing.T) {
 	assert.Contains(t, err.Error(), "Cannot modify")
 	assert.Contains(t, err.Error(), "system org")
 	assert.Contains(t, err.Error(), o.ID)
-	assert.Equal(t, Org{}, actual)
+	assert.Equal(t, org.Org{}, actual)
 }
 
 func TestSVCDelete(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	ctx := context.Background()
-	o := DeleteOrg{
+	o := org.DeleteOrg{
 		ID:      "foo-id",
 		Version: 2,
 	}
 
 	var expectedTX *sqlx.Tx
-	md.On("GetByID", ctx, o.ID).Return(Org{}, nil)
+	md.On("GetByID", ctx, o.ID).Return(org.Org{}, nil)
 	md.On("Delete", ctx, expectedTX, o).Return(nil)
 
 	err := s.Delete(ctx, o)
@@ -348,14 +371,14 @@ func TestSVCDelete_DAOErr(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	ctx := context.Background()
-	o := DeleteOrg{
+	o := org.DeleteOrg{
 		ID:      "foo-id",
 		Version: 2,
 	}
 
 	var expectedTX *sqlx.Tx
 	mockErr := errors.New("unit-test mock error")
-	md.On("GetByID", ctx, o.ID).Return(Org{}, nil)
+	md.On("GetByID", ctx, o.ID).Return(org.Org{}, nil)
 	md.On("Delete", ctx, expectedTX, mock.Anything).Return(mockErr)
 
 	err := s.Delete(ctx, o)
@@ -366,7 +389,7 @@ func TestSVCDelete_OrgNotFound(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	ctx := context.Background()
-	o := DeleteOrg{
+	o := org.DeleteOrg{
 		ID:      "foo-id",
 		Version: 2,
 	}
@@ -374,7 +397,7 @@ func TestSVCDelete_OrgNotFound(t *testing.T) {
 	mockErr := NotFoundErr{
 		ID: o.ID,
 	}
-	md.On("GetByID", ctx, o.ID).Return(Org{}, mockErr)
+	md.On("GetByID", ctx, o.ID).Return(org.Org{}, mockErr)
 
 	err := s.Delete(ctx, o)
 	assert.Equal(t, mockErr, err)
@@ -384,12 +407,12 @@ func TestSVCDelete_SystemOrgNotAllowed(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	ctx := context.Background()
-	o := DeleteOrg{
+	o := org.DeleteOrg{
 		ID:      "foo-id",
 		Version: 2,
 	}
 
-	md.On("GetByID", ctx, o.ID).Return(Org{IsSystem: true}, nil)
+	md.On("GetByID", ctx, o.ID).Return(org.Org{IsSystem: true}, nil)
 
 	err := s.Delete(ctx, o)
 	assert.NotNil(t, err)
@@ -400,32 +423,32 @@ func TestSVCDelete_SystemOrgNotAllowed(t *testing.T) {
 	assert.Contains(t, err.Error(), o.ID)
 }
 
-func (d *mockDAO) GetByID(ctx context.Context, id string) (Org, error) {
+func (d *mockDAO) GetByID(ctx context.Context, id string) (org.Org, error) {
 	args := d.Called(ctx, id)
-	return args.Get(0).(Org), args.Error(1)
+	return args.Get(0).(org.Org), args.Error(1)
 }
 
-func (d *mockDAO) GetAll(ctx context.Context) ([]Org, error) {
+func (d *mockDAO) GetAll(ctx context.Context) ([]org.Org, error) {
 	args := d.Called(ctx)
-	return args.Get(0).([]Org), args.Error(1)
+	return args.Get(0).([]org.Org), args.Error(1)
 }
 
-func (d *mockDAO) SearchByName(ctx context.Context, name string) ([]Org, error) {
+func (d *mockDAO) SearchByName(ctx context.Context, name string) ([]org.Org, error) {
 	args := d.Called(ctx, name)
-	return args.Get(0).([]Org), args.Error(1)
+	return args.Get(0).([]org.Org), args.Error(1)
 }
 
-func (d *mockDAO) Create(ctx context.Context, tx *sqlx.Tx, o Org) error {
+func (d *mockDAO) Create(ctx context.Context, tx *sqlx.Tx, o org.Org) error {
 	args := d.Called(ctx, tx, o)
 	return args.Error(0)
 }
 
-func (d *mockDAO) Update(ctx context.Context, tx *sqlx.Tx, o Org) (Org, error) {
+func (d *mockDAO) Update(ctx context.Context, tx *sqlx.Tx, o org.Org) (org.Org, error) {
 	args := d.Called(ctx, tx, o)
-	return args.Get(0).(Org), args.Error(1)
+	return args.Get(0).(org.Org), args.Error(1)
 }
 
-func (d *mockDAO) Delete(ctx context.Context, tx *sqlx.Tx, o DeleteOrg) error {
+func (d *mockDAO) Delete(ctx context.Context, tx *sqlx.Tx, o org.DeleteOrg) error {
 	args := d.Called(ctx, tx, o)
 	return args.Error(0)
 }

@@ -4,7 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/RyanBard/gin-ex/internal/org"
+	"github.com/RyanBard/gin-ex/pkg/org"
+	"github.com/RyanBard/gin-ex/pkg/user"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 )
@@ -14,12 +15,12 @@ type OrgSVC interface {
 }
 
 type UserDAO interface {
-	GetByID(ctx context.Context, id string) (User, error)
-	GetAll(ctx context.Context) ([]User, error)
-	GetAllByOrgID(ctx context.Context, orgID string) ([]User, error)
-	Create(ctx context.Context, tx *sqlx.Tx, u User) error
-	Update(ctx context.Context, tx *sqlx.Tx, u User) (User, error)
-	Delete(ctx context.Context, tx *sqlx.Tx, u DeleteUser) error
+	GetByID(ctx context.Context, id string) (user.User, error)
+	GetAll(ctx context.Context) ([]user.User, error)
+	GetAllByOrgID(ctx context.Context, orgID string) ([]user.User, error)
+	Create(ctx context.Context, tx *sqlx.Tx, u user.User) error
+	Update(ctx context.Context, tx *sqlx.Tx, u user.User) (user.User, error)
+	Delete(ctx context.Context, tx *sqlx.Tx, u user.DeleteUser) error
 }
 
 type TXManager interface {
@@ -54,7 +55,7 @@ func NewService(log logrus.FieldLogger, orgSVC OrgSVC, dao UserDAO, txMGR TXMana
 	}
 }
 
-func (s service) GetByID(ctx context.Context, id string) (User, error) {
+func (s service) GetByID(ctx context.Context, id string) (user.User, error) {
 	log := s.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "GetByID",
@@ -64,7 +65,7 @@ func (s service) GetByID(ctx context.Context, id string) (User, error) {
 	return s.dao.GetByID(ctx, id)
 }
 
-func (s service) GetAll(ctx context.Context) ([]User, error) {
+func (s service) GetAll(ctx context.Context) ([]user.User, error) {
 	log := s.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "GetAll",
@@ -73,7 +74,7 @@ func (s service) GetAll(ctx context.Context) ([]User, error) {
 	return s.dao.GetAll(ctx)
 }
 
-func (s service) GetAllByOrgID(ctx context.Context, orgID string) ([]User, error) {
+func (s service) GetAllByOrgID(ctx context.Context, orgID string) ([]user.User, error) {
 	log := s.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "GetAll",
@@ -83,7 +84,7 @@ func (s service) GetAllByOrgID(ctx context.Context, orgID string) ([]User, error
 	return s.dao.GetAllByOrgID(ctx, orgID)
 }
 
-func (s service) Save(ctx context.Context, u User) (out User, err error) {
+func (s service) Save(ctx context.Context, u user.User) (out user.User, err error) {
 	log := s.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Save",
@@ -93,7 +94,6 @@ func (s service) Save(ctx context.Context, u User) (out User, err error) {
 	if u.ID != "" {
 		userInDB, err := s.GetByID(ctx, u.ID)
 		if err != nil {
-			log.WithError(err).Error("couldn't find user to update")
 			return out, err
 		}
 		if userInDB.IsSystem {
@@ -103,7 +103,6 @@ func (s service) Save(ctx context.Context, u User) (out User, err error) {
 	}
 	orgInDB, err := s.orgSVC.GetByID(ctx, u.OrgID)
 	if err != nil {
-		log.WithError(err).Error("couldn't find org to associate")
 		return out, err
 	}
 	if orgInDB.IsSystem {
@@ -118,6 +117,7 @@ func (s service) Save(ctx context.Context, u User) (out User, err error) {
 			u.CreatedBy = "TODO"
 			u.UpdatedAt = s.timer.Now()
 			u.UpdatedBy = "TODO"
+			u.IsSystem = false
 			out = u
 			return s.dao.Create(ctx, tx, u)
 		} else {
@@ -128,12 +128,12 @@ func (s service) Save(ctx context.Context, u User) (out User, err error) {
 		}
 	})
 	if err != nil {
-		return User{}, err
+		return user.User{}, err
 	}
 	return out, nil
 }
 
-func (s service) Delete(ctx context.Context, u DeleteUser) error {
+func (s service) Delete(ctx context.Context, u user.DeleteUser) error {
 	log := s.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Delete",
@@ -142,7 +142,6 @@ func (s service) Delete(ctx context.Context, u DeleteUser) error {
 	log.Debug("called")
 	userInDB, err := s.GetByID(ctx, u.ID)
 	if err != nil {
-		log.WithError(err).Error("couldn't find user to delete")
 		return err
 	}
 	if userInDB.IsSystem {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/RyanBard/gin-ex/pkg/org"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -178,7 +179,7 @@ func TestDAOSearchByName_Error(t *testing.T) {
 func TestDAOCreate(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
+	o := org.Org{
 		ID:        id,
 		Name:      name,
 		Desc:      desc,
@@ -203,7 +204,7 @@ func TestDAOCreate(t *testing.T) {
 func TestDAOCreate_Err(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
+	o := org.Org{
 		ID:        id,
 		Name:      name,
 		Desc:      desc,
@@ -229,7 +230,7 @@ func TestDAOCreate_Err(t *testing.T) {
 func TestDAOCreate_TooManyRowsAffected(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
+	o := org.Org{
 		ID:        id,
 		Name:      name,
 		Desc:      desc,
@@ -254,7 +255,7 @@ func TestDAOCreate_TooManyRowsAffected(t *testing.T) {
 func TestDAOUpdate(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
+	o := org.Org{
 		ID:        id,
 		Name:      name,
 		Desc:      desc,
@@ -285,7 +286,7 @@ func TestDAOUpdate(t *testing.T) {
 func TestDAOUpdate_OptimisticLockErr(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
+	o := org.Org{
 		ID:        id,
 		Name:      name,
 		Desc:      desc,
@@ -314,7 +315,7 @@ func TestDAOUpdate_OptimisticLockErr(t *testing.T) {
 func TestDAOUpdate_OtherErr(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
+	o := org.Org{
 		ID:        id,
 		Name:      name,
 		Desc:      desc,
@@ -340,7 +341,7 @@ func TestDAOUpdate_OtherErr(t *testing.T) {
 func TestDAOUpdate_TooManyRowsAffected(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := Org{
+	o := org.Org{
 		ID:        id,
 		Name:      name,
 		Desc:      desc,
@@ -365,7 +366,7 @@ func TestDAOUpdate_TooManyRowsAffected(t *testing.T) {
 func TestDAODelete(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := DeleteOrg{
+	o := org.DeleteOrg{
 		ID:      id,
 		Version: version,
 	}
@@ -386,7 +387,7 @@ func TestDAODelete(t *testing.T) {
 func TestDAODelete_OptimisticLockErr(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := DeleteOrg{
+	o := org.DeleteOrg{
 		ID:      id,
 		Version: version,
 	}
@@ -411,7 +412,7 @@ func TestDAODelete_OptimisticLockErr(t *testing.T) {
 func TestDAODelete_OtherErr(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := DeleteOrg{
+	o := org.DeleteOrg{
 		ID:      id,
 		Version: version,
 	}
@@ -433,7 +434,7 @@ func TestDAODelete_OtherErr(t *testing.T) {
 func TestDAODelete_TooManyRowsAffected(t *testing.T) {
 	d, db, md := initDAO()
 
-	o := DeleteOrg{
+	o := org.DeleteOrg{
 		ID:      id,
 		Version: version,
 	}

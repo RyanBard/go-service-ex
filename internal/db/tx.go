@@ -41,7 +41,7 @@ func (m txmgr) Do(ctx context.Context, joinTX *sqlx.Tx, f func(*sqlx.Tx) error) 
 			return
 		}
 		if err != nil {
-			log.WithError(err).Error("f errored, rolling back tx")
+			log.WithError(err).Warn("f errored, rolling back tx")
 			rbErr := tx.Rollback()
 			if rbErr != nil {
 				log.WithError(rbErr).Error("rollback failed")

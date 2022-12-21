@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/RyanBard/gin-ex/pkg/user"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 )
@@ -21,7 +22,7 @@ func NewDAO(log logrus.FieldLogger, db *sqlx.DB) *dao {
 	}
 }
 
-func (d dao) GetByID(ctx context.Context, id string) (u User, err error) {
+func (d dao) GetByID(ctx context.Context, id string) (u user.User, err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "GetByID",
@@ -39,7 +40,7 @@ func (d dao) GetByID(ctx context.Context, id string) (u User, err error) {
 	return u, err
 }
 
-func (d dao) GetAll(ctx context.Context) (users []User, err error) {
+func (d dao) GetAll(ctx context.Context) (users []user.User, err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "GetAll",
@@ -53,14 +54,14 @@ func (d dao) GetAll(ctx context.Context) (users []User, err error) {
 	return users, err
 }
 
-func (d dao) GetAllByOrgID(ctx context.Context, orgID string) (users []User, err error) {
+func (d dao) GetAllByOrgID(ctx context.Context, orgID string) (users []user.User, err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "GetAllByOrgID",
 		"orgID": orgID,
 	})
 	log.Debug("called")
-	users = []User{}
+	users = []user.User{}
 	err = d.db.SelectContext(ctx, &users, getAllByOrgIDQuery, orgID)
 	if err != nil {
 		return users, err
@@ -69,7 +70,7 @@ func (d dao) GetAllByOrgID(ctx context.Context, orgID string) (users []User, err
 	return users, err
 }
 
-func (d dao) Create(ctx context.Context, tx *sqlx.Tx, u User) (err error) {
+func (d dao) Create(ctx context.Context, tx *sqlx.Tx, u user.User) (err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Create",
@@ -94,7 +95,7 @@ func (d dao) Create(ctx context.Context, tx *sqlx.Tx, u User) (err error) {
 	return err
 }
 
-func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input User) (u User, err error) {
+func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input user.User) (u user.User, err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Update",
@@ -123,7 +124,7 @@ func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input User) (u User, err e
 	return input, err
 }
 
-func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, u DeleteUser) (err error) {
+func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, u user.DeleteUser) (err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Delete",

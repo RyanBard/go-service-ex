@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/RyanBard/gin-ex/pkg/org"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
@@ -106,7 +107,7 @@ func TestCTRLGetByID(t *testing.T) {
 		},
 	}
 
-	mockRes := Org{
+	mockRes := org.Org{
 		ID:        id,
 		Name:      "foo-name",
 		Desc:      "foo-desc",
@@ -119,7 +120,7 @@ func TestCTRLGetByID(t *testing.T) {
 	res := w.Result()
 	bytes, err := io.ReadAll(res.Body)
 	assert.Nil(t, err)
-	var actual Org
+	var actual org.Org
 	err = json.Unmarshal(bytes, &actual)
 	assert.Nil(t, err)
 	defer res.Body.Close()
@@ -142,7 +143,7 @@ func TestCTRLGetByID_NotFoundError(t *testing.T) {
 	}
 
 	mockErr := NotFoundErr{ID: id}
-	ms.On("GetByID", mock.Anything, id).Return(Org{}, mockErr)
+	ms.On("GetByID", mock.Anything, id).Return(org.Org{}, mockErr)
 
 	c.GetByID(gc)
 	res := w.Result()
@@ -171,7 +172,7 @@ func TestCTRLGetByID_ServiceError(t *testing.T) {
 	}
 
 	mockErr := errors.New("unit-test mock service error")
-	ms.On("GetByID", mock.Anything, id).Return(Org{}, mockErr)
+	ms.On("GetByID", mock.Anything, id).Return(org.Org{}, mockErr)
 
 	c.GetByID(gc)
 	res := w.Result()
@@ -190,7 +191,7 @@ func TestCTRLGetAll(t *testing.T) {
 	gc, w, err := ginCtx("/")
 	assert.Nil(t, err)
 
-	mockRes := []Org{
+	mockRes := []org.Org{
 		{
 			ID:        "foo-id",
 			Name:      "foo-name",
@@ -205,7 +206,7 @@ func TestCTRLGetAll(t *testing.T) {
 	res := w.Result()
 	bytes, err := io.ReadAll(res.Body)
 	assert.Nil(t, err)
-	var actual []Org
+	var actual []org.Org
 	err = json.Unmarshal(bytes, &actual)
 	assert.Nil(t, err)
 	defer res.Body.Close()
@@ -227,7 +228,7 @@ func TestCTRLGetAll_NameSpecified(t *testing.T) {
 		},
 	}
 
-	mockRes := []Org{
+	mockRes := []org.Org{
 		{
 			ID:        "foo-id",
 			Name:      name,
@@ -242,7 +243,7 @@ func TestCTRLGetAll_NameSpecified(t *testing.T) {
 	res := w.Result()
 	bytes, err := io.ReadAll(res.Body)
 	assert.Nil(t, err)
-	var actual []Org
+	var actual []org.Org
 	err = json.Unmarshal(bytes, &actual)
 	assert.Nil(t, err)
 	defer res.Body.Close()
@@ -256,7 +257,7 @@ func TestCTRLGetAll_ServiceError(t *testing.T) {
 	assert.Nil(t, err)
 
 	mockErr := errors.New("unit-test mock service error")
-	ms.On("GetAll", mock.Anything, "").Return([]Org{}, mockErr)
+	ms.On("GetAll", mock.Anything, "").Return([]org.Org{}, mockErr)
 
 	c.GetAll(gc)
 	res := w.Result()
@@ -271,7 +272,7 @@ func TestCTRLGetAll_ServiceError(t *testing.T) {
 }
 
 func TestCTRLSave(t *testing.T) {
-	o := Org{
+	o := org.Org{
 		ID:   "body-foo-id",
 		Name: "foo-name",
 		Desc: "foo-desc",
@@ -281,7 +282,7 @@ func TestCTRLSave(t *testing.T) {
 	gc, w, err := ginCtxWithBody("/", o)
 	assert.Nil(t, err)
 
-	mockRes := Org{
+	mockRes := org.Org{
 		ID:        o.ID,
 		Name:      o.Name,
 		Desc:      o.Desc,
@@ -294,7 +295,7 @@ func TestCTRLSave(t *testing.T) {
 	res := w.Result()
 	bytes, err := io.ReadAll(res.Body)
 	assert.Nil(t, err)
-	var actual Org
+	var actual org.Org
 	err = json.Unmarshal(bytes, &actual)
 	assert.Nil(t, err)
 	defer res.Body.Close()
@@ -304,7 +305,7 @@ func TestCTRLSave(t *testing.T) {
 
 func TestCTRLSave_PathID(t *testing.T) {
 	id := "foo-id"
-	o := Org{
+	o := org.Org{
 		ID:   "body-foo-id",
 		Name: "foo-name",
 		Desc: "foo-desc",
@@ -321,12 +322,12 @@ func TestCTRLSave_PathID(t *testing.T) {
 		},
 	}
 
-	expectedOrg := Org{
+	expectedOrg := org.Org{
 		ID:   id,
 		Name: o.Name,
 		Desc: o.Desc,
 	}
-	mockRes := Org{
+	mockRes := org.Org{
 		ID:        id,
 		Name:      o.Name,
 		Desc:      o.Desc,
@@ -339,7 +340,7 @@ func TestCTRLSave_PathID(t *testing.T) {
 	res := w.Result()
 	bytes, err := io.ReadAll(res.Body)
 	assert.Nil(t, err)
-	var actual Org
+	var actual org.Org
 	err = json.Unmarshal(bytes, &actual)
 	assert.Nil(t, err)
 	defer res.Body.Close()
@@ -384,7 +385,7 @@ func TestCTRLSave_UnmarshalError(t *testing.T) {
 }
 
 func TestCTRLSave_ValidationError_MissingName(t *testing.T) {
-	o := Org{
+	o := org.Org{
 		Name: "",
 		Desc: "foo-desc",
 	}
@@ -408,7 +409,7 @@ func TestCTRLSave_ValidationError_MissingName(t *testing.T) {
 }
 
 func TestCTRLSave_ValidationError_MissingDesc(t *testing.T) {
-	o := Org{
+	o := org.Org{
 		Name: "foo-name",
 		Desc: "",
 	}
@@ -432,7 +433,7 @@ func TestCTRLSave_ValidationError_MissingDesc(t *testing.T) {
 }
 
 func TestCTRLSave_ValidationError_MissingNameAndDesc(t *testing.T) {
-	o := Org{
+	o := org.Org{
 		Name: "",
 		Desc: "",
 	}
@@ -457,7 +458,7 @@ func TestCTRLSave_ValidationError_MissingNameAndDesc(t *testing.T) {
 }
 
 func TestCTRLSave_NotFoundError(t *testing.T) {
-	o := Org{
+	o := org.Org{
 		ID:   "body-foo-id",
 		Name: "foo-name",
 		Desc: "foo-desc",
@@ -468,7 +469,7 @@ func TestCTRLSave_NotFoundError(t *testing.T) {
 	assert.Nil(t, err)
 
 	mockErr := NotFoundErr{ID: o.ID}
-	ms.On("Save", mock.Anything, o).Return(Org{}, mockErr)
+	ms.On("Save", mock.Anything, o).Return(org.Org{}, mockErr)
 
 	c.Save(gc)
 	res := w.Result()
@@ -483,7 +484,7 @@ func TestCTRLSave_NotFoundError(t *testing.T) {
 }
 
 func TestCTRLSave_CannotModifySysOrgError(t *testing.T) {
-	o := Org{
+	o := org.Org{
 		ID:   "body-foo-id",
 		Name: "foo-name",
 		Desc: "foo-desc",
@@ -494,7 +495,7 @@ func TestCTRLSave_CannotModifySysOrgError(t *testing.T) {
 	assert.Nil(t, err)
 
 	mockErr := CannotModifySysOrgErr{ID: o.ID}
-	ms.On("Save", mock.Anything, o).Return(Org{}, mockErr)
+	ms.On("Save", mock.Anything, o).Return(org.Org{}, mockErr)
 
 	c.Save(gc)
 	res := w.Result()
@@ -508,8 +509,34 @@ func TestCTRLSave_CannotModifySysOrgError(t *testing.T) {
 	assert.Equal(t, mockErr.Error(), actual["message"])
 }
 
+func TestCTRLSave_OptimisticLockError(t *testing.T) {
+	o := org.Org{
+		ID:   "body-foo-id",
+		Name: "foo-name",
+		Desc: "foo-desc",
+	}
+
+	c, ms := initCTRL()
+	gc, w, err := ginCtxWithBody("/", o)
+	assert.Nil(t, err)
+
+	mockErr := OptimisticLockErr{ID: o.ID, Version: o.Version}
+	ms.On("Save", mock.Anything, o).Return(org.Org{}, mockErr)
+
+	c.Save(gc)
+	res := w.Result()
+	bytes, err := io.ReadAll(res.Body)
+	assert.Nil(t, err)
+	var actual map[string]string
+	err = json.Unmarshal(bytes, &actual)
+	assert.Nil(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, 409, gc.Writer.Status())
+	assert.Equal(t, mockErr.Error(), actual["message"])
+}
+
 func TestCTRLSave_ServiceError(t *testing.T) {
-	o := Org{
+	o := org.Org{
 		ID:   "body-foo-id",
 		Name: "foo-name",
 		Desc: "foo-desc",
@@ -520,7 +547,7 @@ func TestCTRLSave_ServiceError(t *testing.T) {
 	assert.Nil(t, err)
 
 	mockErr := errors.New("unit-test mock service error")
-	ms.On("Save", mock.Anything, o).Return(Org{}, mockErr)
+	ms.On("Save", mock.Anything, o).Return(org.Org{}, mockErr)
 
 	c.Save(gc)
 	res := w.Result()
@@ -535,7 +562,7 @@ func TestCTRLSave_ServiceError(t *testing.T) {
 }
 
 func TestCTRLDelete(t *testing.T) {
-	o := DeleteOrg{
+	o := org.DeleteOrg{
 		ID:      "body-foo-id",
 		Version: 1,
 	}
@@ -608,7 +635,7 @@ func TestCTRLDelete_UnmarshalError(t *testing.T) {
 }
 
 func TestCTRLDelete_ValidationError_MissingVersion(t *testing.T) {
-	o := DeleteOrg{
+	o := org.DeleteOrg{
 		ID: "foo-id",
 	}
 
@@ -638,7 +665,7 @@ func TestCTRLDelete_ValidationError_MissingVersion(t *testing.T) {
 }
 
 func TestCTRLDelete_NotFoundErr(t *testing.T) {
-	o := DeleteOrg{
+	o := org.DeleteOrg{
 		ID:      "body-foo-id",
 		Version: 1,
 	}
@@ -662,7 +689,7 @@ func TestCTRLDelete_NotFoundErr(t *testing.T) {
 }
 
 func TestCTRLDelete_CannotModifySysOrgErr(t *testing.T) {
-	o := DeleteOrg{
+	o := org.DeleteOrg{
 		ID:      "body-foo-id",
 		Version: 1,
 	}
@@ -685,8 +712,32 @@ func TestCTRLDelete_CannotModifySysOrgErr(t *testing.T) {
 	assert.Equal(t, 403, gc.Writer.Status())
 }
 
+func TestCTRLDelete_OptimisticLockError(t *testing.T) {
+	o := org.DeleteOrg{
+		ID:      "body-foo-id",
+		Version: 1,
+	}
+
+	c, ms := initCTRL()
+	gc, _, err := ginCtxWithBody("/", o)
+	assert.Nil(t, err)
+
+	gc.Params = []gin.Param{
+		{
+			Key:   "id",
+			Value: o.ID,
+		},
+	}
+
+	mockErr := OptimisticLockErr{ID: o.ID, Version: o.Version}
+	ms.On("Delete", mock.Anything, o).Return(mockErr)
+
+	c.Delete(gc)
+	assert.Equal(t, 409, gc.Writer.Status())
+}
+
 func TestCTRLDelete_ServiceError(t *testing.T) {
-	o := DeleteOrg{
+	o := org.DeleteOrg{
 		ID:      "body-foo-id",
 		Version: 1,
 	}
@@ -709,22 +760,22 @@ func TestCTRLDelete_ServiceError(t *testing.T) {
 	assert.Equal(t, 500, gc.Writer.Status())
 }
 
-func (m *mockSVC) GetByID(ctx context.Context, id string) (Org, error) {
+func (m *mockSVC) GetByID(ctx context.Context, id string) (org.Org, error) {
 	args := m.Called(ctx, id)
-	return args.Get(0).(Org), args.Error(1)
+	return args.Get(0).(org.Org), args.Error(1)
 }
 
-func (m *mockSVC) GetAll(ctx context.Context, name string) ([]Org, error) {
+func (m *mockSVC) GetAll(ctx context.Context, name string) ([]org.Org, error) {
 	args := m.Called(ctx, name)
-	return args.Get(0).([]Org), args.Error(1)
+	return args.Get(0).([]org.Org), args.Error(1)
 }
 
-func (m *mockSVC) Save(ctx context.Context, o Org) (Org, error) {
+func (m *mockSVC) Save(ctx context.Context, o org.Org) (org.Org, error) {
 	args := m.Called(ctx, o)
-	return args.Get(0).(Org), args.Error(1)
+	return args.Get(0).(org.Org), args.Error(1)
 }
 
-func (m *mockSVC) Delete(ctx context.Context, o DeleteOrg) error {
+func (m *mockSVC) Delete(ctx context.Context, o org.DeleteOrg) error {
 	args := m.Called(ctx, o)
 	return args.Error(0)
 }

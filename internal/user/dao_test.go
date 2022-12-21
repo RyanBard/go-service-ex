@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/RyanBard/gin-ex/pkg/user"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -202,7 +203,7 @@ func TestDAOGetAllByOrgID_Error(t *testing.T) {
 func TestDAOCreate(t *testing.T) {
 	d, db, md := initDAO()
 
-	u := User{
+	u := user.User{
 		ID:        id,
 		OrgID:     orgID,
 		Name:      name,
@@ -231,7 +232,7 @@ func TestDAOCreate(t *testing.T) {
 func TestDAOCreate_Err(t *testing.T) {
 	d, db, md := initDAO()
 
-	u := User{
+	u := user.User{
 		ID:        id,
 		OrgID:     orgID,
 		Name:      name,
@@ -261,7 +262,7 @@ func TestDAOCreate_Err(t *testing.T) {
 func TestDAOCreate_TooManyRowsAffected(t *testing.T) {
 	d, db, md := initDAO()
 
-	u := User{
+	u := user.User{
 		ID:        id,
 		OrgID:     orgID,
 		Name:      name,
@@ -290,7 +291,7 @@ func TestDAOCreate_TooManyRowsAffected(t *testing.T) {
 func TestDAOUpdate(t *testing.T) {
 	d, db, md := initDAO()
 
-	u := User{
+	u := user.User{
 		ID:        id,
 		OrgID:     orgID,
 		Name:      name,
@@ -329,7 +330,7 @@ func TestDAOUpdate(t *testing.T) {
 func TestDAOUpdate_OptimisticLockErr(t *testing.T) {
 	d, db, md := initDAO()
 
-	u := User{
+	u := user.User{
 		ID:        id,
 		OrgID:     orgID,
 		Name:      name,
@@ -362,7 +363,7 @@ func TestDAOUpdate_OptimisticLockErr(t *testing.T) {
 func TestDAOUpdate_OtherErr(t *testing.T) {
 	d, db, md := initDAO()
 
-	u := User{
+	u := user.User{
 		ID:        id,
 		OrgID:     orgID,
 		Name:      name,
@@ -392,7 +393,7 @@ func TestDAOUpdate_OtherErr(t *testing.T) {
 func TestDAOUpdate_TooManyRowsAffected(t *testing.T) {
 	d, db, md := initDAO()
 
-	u := User{
+	u := user.User{
 		ID:        id,
 		OrgID:     orgID,
 		Name:      name,
@@ -421,7 +422,7 @@ func TestDAOUpdate_TooManyRowsAffected(t *testing.T) {
 func TestDAODelete(t *testing.T) {
 	d, db, md := initDAO()
 
-	u := DeleteUser{
+	u := user.DeleteUser{
 		ID:      id,
 		Version: version,
 	}
@@ -442,7 +443,7 @@ func TestDAODelete(t *testing.T) {
 func TestDAODelete_OptimisticLockErr(t *testing.T) {
 	d, db, md := initDAO()
 
-	u := DeleteUser{
+	u := user.DeleteUser{
 		ID:      id,
 		Version: version,
 	}
@@ -467,7 +468,7 @@ func TestDAODelete_OptimisticLockErr(t *testing.T) {
 func TestDAODelete_OtherErr(t *testing.T) {
 	d, db, md := initDAO()
 
-	u := DeleteUser{
+	u := user.DeleteUser{
 		ID:      id,
 		Version: version,
 	}
@@ -489,7 +490,7 @@ func TestDAODelete_OtherErr(t *testing.T) {
 func TestDAODelete_TooManyRowsAffected(t *testing.T) {
 	d, db, md := initDAO()
 
-	u := DeleteUser{
+	u := user.DeleteUser{
 		ID:      id,
 		Version: version,
 	}

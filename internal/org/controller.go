@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/RyanBard/gin-ex/pkg/org"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
@@ -12,10 +13,10 @@ import (
 )
 
 type OrgService interface {
-	GetByID(ctx context.Context, id string) (Org, error)
-	GetAll(ctx context.Context, name string) ([]Org, error)
-	Save(ctx context.Context, o Org) (Org, error)
-	Delete(ctx context.Context, o DeleteOrg) error
+	GetByID(ctx context.Context, id string) (org.Org, error)
+	GetAll(ctx context.Context, name string) ([]org.Org, error)
+	Save(ctx context.Context, o org.Org) (org.Org, error)
+	Delete(ctx context.Context, o org.DeleteOrg) error
 }
 
 type ctrl struct {
@@ -42,18 +43,19 @@ func (ctr ctrl) GetByID(c *gin.Context) {
 	log.Debug("called")
 	o, err := ctr.service.GetByID(c.Request.Context(), id)
 	if err != nil {
-		log.WithError(err).Error("Service call failed")
 		var statusCode int
 		var notFound NotFoundErr
 		if errors.As(err, &notFound) {
+			log.WithError(err).Warn("resource not found")
 			statusCode = http.StatusNotFound
 		} else {
+			log.WithError(err).Error("service call failed")
 			statusCode = http.StatusInternalServerError
 		}
 		c.JSON(statusCode, gin.H{"message": err.Error()})
 		return
 	}
-	log.WithField("org", o).Debug("Success")
+	log.WithField("org", o).Debug("success")
 	c.JSON(http.StatusOK, o)
 }
 
@@ -67,11 +69,11 @@ func (ctr ctrl) GetAll(c *gin.Context) {
 	log.Debug("called")
 	o, err := ctr.service.GetAll(c.Request.Context(), name)
 	if err != nil {
-		log.WithError(err).Error("Service call failed")
+		log.WithError(err).Error("service call failed")
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	log.WithField("orgsLen", len(o)).Debug("Success")
+	log.WithField("orgsLen", len(o)).Debug("success")
 	c.JSON(http.StatusOK, o)
 }
 
@@ -85,14 +87,14 @@ func (ctr ctrl) Save(c *gin.Context) {
 	log.Debug("called")
 	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		log.WithError(err).Error("Read of req body failed")
+		log.WithError(err).Error("read of req body failed")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 	defer c.Request.Body.Close()
-	var o Org
+	var o org.Org
 	if err = json.Unmarshal(bytes, &o); err != nil {
-		log.WithError(err).Error("Unmarshalling failed")
+		log.WithError(err).Warn("unmarshalling failed")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
@@ -100,7 +102,7 @@ func (ctr ctrl) Save(c *gin.Context) {
 		o.ID = pathID
 	}
 	if err = ctr.validate.Struct(o); err != nil {
-		log.WithError(err).Error("Invalid org body")
+		log.WithError(err).Warn("invalid org body")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
@@ -110,21 +112,27 @@ func (ctr ctrl) Save(c *gin.Context) {
 	log.Debug("body processed, about to call service")
 	o, err = ctr.service.Save(c.Request.Context(), o)
 	if err != nil {
-		log.WithError(err).Error("Service call failed")
 		var statusCode int
 		var notFound NotFoundErr
 		var modSysOrg CannotModifySysOrgErr
+		var optLock OptimisticLockErr
 		if errors.As(err, &notFound) {
+			log.WithError(err).Warn("resource not found")
 			statusCode = http.StatusNotFound
 		} else if errors.As(err, &modSysOrg) {
+			log.WithError(err).Warn("cannot modify system org")
 			statusCode = http.StatusForbidden
+		} else if errors.As(err, &optLock) {
+			log.WithError(err).Warn("optimistic lock error")
+			statusCode = http.StatusConflict
 		} else {
+			log.WithError(err).Error("service call failed")
 			statusCode = http.StatusInternalServerError
 		}
 		c.JSON(statusCode, gin.H{"message": err.Error()})
 		return
 	}
-	log.Debug("Success")
+	log.Debug("success")
 	c.JSON(http.StatusOK, o)
 }
 
@@ -143,9 +151,9 @@ func (ctr ctrl) Delete(c *gin.Context) {
 		return
 	}
 	defer c.Request.Body.Close()
-	var o DeleteOrg
+	var o org.DeleteOrg
 	if err = json.Unmarshal(bytes, &o); err != nil {
-		log.WithError(err).Error("Unmarshalling failed")
+		log.WithError(err).Warn("unmarshalling failed")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
@@ -153,7 +161,7 @@ func (ctr ctrl) Delete(c *gin.Context) {
 		o.ID = pathID
 	}
 	if err = ctr.validate.Struct(o); err != nil {
-		log.WithError(err).Error("Invalid org body")
+		log.WithError(err).Warn("invalid org body")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
@@ -162,16 +170,22 @@ func (ctr ctrl) Delete(c *gin.Context) {
 	})
 	log.Debug("body processed, about to call service")
 	if err := ctr.service.Delete(c.Request.Context(), o); err != nil {
-		log.WithError(err).Error("Service call failed")
 		var statusCode int
 		var notFound NotFoundErr
 		var modSysOrg CannotModifySysOrgErr
+		var optLock OptimisticLockErr
 		if errors.As(err, &notFound) {
+			log.WithError(err).Warn("resource already gone, not deleting")
 			c.Status(http.StatusNoContent)
 			return
 		} else if errors.As(err, &modSysOrg) {
+			log.WithError(err).Warn("cannot modify system org")
 			statusCode = http.StatusForbidden
+		} else if errors.As(err, &optLock) {
+			log.WithError(err).Warn("optimistic lock error")
+			statusCode = http.StatusConflict
 		} else {
+			log.WithError(err).Error("service call failed")
 			statusCode = http.StatusInternalServerError
 		}
 		c.JSON(statusCode, gin.H{"message": err.Error()})

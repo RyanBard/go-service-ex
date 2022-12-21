@@ -2,19 +2,21 @@ package org
 
 import (
 	"context"
+	"strings"
 	"time"
 
+	"github.com/RyanBard/gin-ex/pkg/org"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 )
 
 type OrgDAO interface {
-	GetByID(ctx context.Context, id string) (Org, error)
-	GetAll(ctx context.Context) ([]Org, error)
-	SearchByName(ctx context.Context, name string) ([]Org, error)
-	Create(ctx context.Context, tx *sqlx.Tx, o Org) error
-	Update(ctx context.Context, tx *sqlx.Tx, o Org) (Org, error)
-	Delete(ctx context.Context, tx *sqlx.Tx, o DeleteOrg) error
+	GetByID(ctx context.Context, id string) (org.Org, error)
+	GetAll(ctx context.Context) ([]org.Org, error)
+	SearchByName(ctx context.Context, name string) ([]org.Org, error)
+	Create(ctx context.Context, tx *sqlx.Tx, o org.Org) error
+	Update(ctx context.Context, tx *sqlx.Tx, o org.Org) (org.Org, error)
+	Delete(ctx context.Context, tx *sqlx.Tx, o org.DeleteOrg) error
 }
 
 type TXManager interface {
@@ -47,7 +49,7 @@ func NewService(log logrus.FieldLogger, dao OrgDAO, txMGR TXManager, timer Timer
 	}
 }
 
-func (s service) GetByID(ctx context.Context, id string) (Org, error) {
+func (s service) GetByID(ctx context.Context, id string) (org.Org, error) {
 	log := s.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "GetByID",
@@ -57,7 +59,7 @@ func (s service) GetByID(ctx context.Context, id string) (Org, error) {
 	return s.dao.GetByID(ctx, id)
 }
 
-func (s service) GetAll(ctx context.Context, name string) ([]Org, error) {
+func (s service) GetAll(ctx context.Context, name string) ([]org.Org, error) {
 	log := s.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "GetAll",
@@ -67,11 +69,11 @@ func (s service) GetAll(ctx context.Context, name string) ([]Org, error) {
 	if name == "" {
 		return s.dao.GetAll(ctx)
 	} else {
-		return s.dao.SearchByName(ctx, name)
+		return s.dao.SearchByName(ctx, strings.ToLower(name))
 	}
 }
 
-func (s service) Save(ctx context.Context, o Org) (out Org, err error) {
+func (s service) Save(ctx context.Context, o org.Org) (out org.Org, err error) {
 	log := s.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Save",
@@ -81,7 +83,6 @@ func (s service) Save(ctx context.Context, o Org) (out Org, err error) {
 	if o.ID != "" {
 		orgInDB, err := s.GetByID(ctx, o.ID)
 		if err != nil {
-			log.WithError(err).Error("couldn't find org to update")
 			return out, err
 		}
 		if orgInDB.IsSystem {
@@ -97,6 +98,7 @@ func (s service) Save(ctx context.Context, o Org) (out Org, err error) {
 			o.CreatedBy = "TODO"
 			o.UpdatedAt = s.timer.Now()
 			o.UpdatedBy = "TODO"
+			o.IsSystem = false
 			out = o
 			return s.dao.Create(ctx, tx, o)
 		} else {
@@ -107,12 +109,12 @@ func (s service) Save(ctx context.Context, o Org) (out Org, err error) {
 		}
 	})
 	if err != nil {
-		return Org{}, err
+		return org.Org{}, err
 	}
 	return out, nil
 }
 
-func (s service) Delete(ctx context.Context, o DeleteOrg) error {
+func (s service) Delete(ctx context.Context, o org.DeleteOrg) error {
 	log := s.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Delete",
@@ -121,7 +123,6 @@ func (s service) Delete(ctx context.Context, o DeleteOrg) error {
 	log.Debug("called")
 	orgInDB, err := s.GetByID(ctx, o.ID)
 	if err != nil {
-		log.WithError(err).Error("couldn't find org to delete")
 		return err
 	}
 	if orgInDB.IsSystem {

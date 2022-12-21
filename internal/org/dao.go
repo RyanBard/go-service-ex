@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/RyanBard/gin-ex/pkg/org"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 )
@@ -21,7 +22,7 @@ func NewDAO(log logrus.FieldLogger, db *sqlx.DB) *dao {
 	}
 }
 
-func (d dao) GetByID(ctx context.Context, id string) (o Org, err error) {
+func (d dao) GetByID(ctx context.Context, id string) (o org.Org, err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "GetByID",
@@ -39,7 +40,7 @@ func (d dao) GetByID(ctx context.Context, id string) (o Org, err error) {
 	return o, err
 }
 
-func (d dao) GetAll(ctx context.Context) (orgs []Org, err error) {
+func (d dao) GetAll(ctx context.Context) (orgs []org.Org, err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "GetAll",
@@ -53,14 +54,14 @@ func (d dao) GetAll(ctx context.Context) (orgs []Org, err error) {
 	return orgs, err
 }
 
-func (d dao) SearchByName(ctx context.Context, name string) (orgs []Org, err error) {
+func (d dao) SearchByName(ctx context.Context, name string) (orgs []org.Org, err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "SearchByName",
 		"name":  name,
 	})
 	log.Debug("called")
-	orgs = []Org{}
+	orgs = []org.Org{}
 	err = d.db.SelectContext(ctx, &orgs, searchByNameQuery, "%"+name+"%")
 	if err != nil {
 		return orgs, err
@@ -69,7 +70,7 @@ func (d dao) SearchByName(ctx context.Context, name string) (orgs []Org, err err
 	return orgs, err
 }
 
-func (d dao) Create(ctx context.Context, tx *sqlx.Tx, o Org) (err error) {
+func (d dao) Create(ctx context.Context, tx *sqlx.Tx, o org.Org) (err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Create",
@@ -94,7 +95,7 @@ func (d dao) Create(ctx context.Context, tx *sqlx.Tx, o Org) (err error) {
 	return err
 }
 
-func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input Org) (o Org, err error) {
+func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input org.Org) (o org.Org, err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Update",
@@ -123,7 +124,7 @@ func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input Org) (o Org, err err
 	return input, err
 }
 
-func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, o DeleteOrg) (err error) {
+func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, o org.DeleteOrg) (err error) {
 	log := d.log.WithFields(logrus.Fields{
 		"reqID": ctx.Value("reqID"),
 		"fn":    "Delete",
