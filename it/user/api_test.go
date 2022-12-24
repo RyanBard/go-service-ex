@@ -10,16 +10,20 @@ import (
 	"github.com/RyanBard/gin-ex/it/config"
 	"github.com/RyanBard/gin-ex/pkg/org"
 	"github.com/RyanBard/gin-ex/pkg/user"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
+	"time"
 )
 
 const (
-	sysOrgID  = "a517c24e-9b5f-4e5a-b840-e4f70a74725f"
-	sysUserID = "fc83cf36-bba0-41f0-8125-2ebc03087140"
+	sysOrgID       = "a517c24e-9b5f-4e5a-b840-e4f70a74725f"
+	sysUserID      = "fc83cf36-bba0-41f0-8125-2ebc03087140"
+	adminUserID    = "fc83cf36-bba0-41f0-8125-2ebc03087140"
+	nonAdminUserID = "ffff0000-0000-0000-0000-000000000000"
 )
 
 type orgClient interface {
@@ -36,12 +40,15 @@ type userClient interface {
 }
 
 type info struct {
-	config         config.Config
-	usersToCleanup map[string]user.DeleteUser
-	testOrg        org.Org
-	userClient     userClient
-	log            logrus.FieldLogger
-	reqID          string
+	config             config.Config
+	usersToCleanup     map[string]user.DeleteUser
+	testOrg            org.Org
+	orgClient          orgClient
+	userClient         userClient
+	invJWTUserClient   userClient
+	nonAdminUserClient userClient
+	log                logrus.FieldLogger
+	reqID              string
 }
 
 func setupSuite(tb testing.TB) (*info, func(tb testing.TB)) {
@@ -57,50 +64,71 @@ func setupSuite(tb testing.TB) (*info, func(tb testing.TB)) {
 	}
 	logger.SetLevel(logLvl)
 	log := logger.WithField("reqID", reqID)
-	orgClient := org.NewClient(
+
+	ui := info{
+		config:         cfg,
+		usersToCleanup: make(map[string]user.DeleteUser),
+		log:            log,
+		reqID:          reqID,
+	}
+	ui.orgClient = org.NewClient(
 		org.Config{
 			BaseURL: cfg.BaseURL,
 		},
 		http.Client{},
 		func(isRetry bool) (string, error) {
-			return "foo", nil
+			return ui.getAdminJWT(), nil
 		},
 	)
+	ui.userClient = user.NewClient(
+		user.Config{
+			BaseURL: cfg.BaseURL,
+		},
+		http.Client{},
+		func(isRetry bool) (string, error) {
+			return ui.getAdminJWT(), nil
+		},
+	)
+	ui.invJWTUserClient = user.NewClient(
+		user.Config{
+			BaseURL: cfg.BaseURL,
+		},
+		http.Client{},
+		func(isRetry bool) (string, error) {
+			return "x.y.z", nil
+		},
+	)
+	ui.nonAdminUserClient = user.NewClient(
+		user.Config{
+			BaseURL: cfg.BaseURL,
+		},
+		http.Client{},
+		func(isRetry bool) (string, error) {
+			return ui.getNonAdminJWT(), nil
+		},
+	)
+
 	ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("user-suite-setup-%s", reqID))
-	testOrg, err := orgClient.Save(ctx, org.Org{
+	testOrg, err := ui.orgClient.Save(ctx, org.Org{
 		Name: "Test-" + uuid.NewString(),
 		Desc: "Integration Test",
 	})
 	if err != nil {
 		log.WithError(err).Fatal("failed to create test org")
 	}
-	s := info{
-		config:         cfg,
-		usersToCleanup: make(map[string]user.DeleteUser),
-		userClient: user.NewClient(
-			user.Config{
-				BaseURL: cfg.BaseURL,
-			},
-			http.Client{},
-			func(isRetry bool) (string, error) {
-				return "foo", nil
-			},
-		),
-		testOrg: testOrg,
-		log:     log,
-		reqID:   reqID,
-	}
-	return &s, func(tb testing.TB) {
-		for i, u := range s.usersToCleanup {
+	ui.testOrg = testOrg
+
+	return &ui, func(tb testing.TB) {
+		for i, u := range ui.usersToCleanup {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("user-teardown-%s-%s", reqID, i))
-			err := s.userClient.Delete(ctx, u)
+			err := ui.userClient.Delete(ctx, u)
 			if err != nil {
 				log.WithError(err).WithField("user", u).Warn("failed to cleanup user")
 			}
 		}
 		ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("user-teardown-%s", reqID))
-		o := org.DeleteOrg{ID: s.testOrg.ID, Version: s.testOrg.Version}
-		err := orgClient.Delete(ctx, o)
+		o := org.DeleteOrg{ID: ui.testOrg.ID, Version: ui.testOrg.Version}
+		err := ui.orgClient.Delete(ctx, o)
 		if err != nil {
 			log.WithError(err).WithField("org", o).Warn("failed to cleanup org")
 		}
@@ -109,6 +137,35 @@ func setupSuite(tb testing.TB) (*info, func(tb testing.TB)) {
 
 func (ui *info) addUserToCleanup(u user.User) {
 	ui.usersToCleanup[u.ID] = user.DeleteUser{ID: u.ID, Version: u.Version}
+}
+
+func (ui *info) getAdminJWT() string {
+	claims := ui.getClaims(adminUserID)
+	claims["admin"] = true
+	return ui.hmacJWT(claims)
+}
+
+func (ui *info) getNonAdminJWT() string {
+	claims := ui.getClaims(nonAdminUserID)
+	return ui.hmacJWT(claims)
+}
+
+func (ui *info) getClaims(userID string) jwt.MapClaims {
+	return jwt.MapClaims{
+		"sub": userID,
+		"aud": ui.config.JWTAudience,
+		"iss": ui.config.JWTIssuer,
+		"exp": time.Now().AddDate(0, 0, 1).Unix(),
+	}
+}
+
+func (ui *info) hmacJWT(claims jwt.MapClaims) string {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := token.SignedString([]byte(ui.config.JWTSecret))
+	if err != nil {
+		ui.log.WithError(err).Fatal("failed to sign jwt")
+	}
+	return tokenStr
 }
 
 func TestUserAPI(t *testing.T) {
@@ -137,37 +194,37 @@ func TestUserAPI(t *testing.T) {
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 404, httpErr.StatusCode)
 		})
+
+		t.Run("NonAdminToken", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getByID-non-admin-jwt-%s", s.reqID))
+			u, err := s.nonAdminUserClient.GetByID(ctx, sysUserID)
+			assert.Nil(t, err)
+			assert.NotNil(t, u.ID)
+			assert.Equal(t, sysUserID, u.ID)
+			assert.Equal(t, "System Admin", u.Name)
+			assert.Equal(t, true, u.IsSystem)
+			assert.Equal(t, true, u.IsAdmin)
+			assert.Equal(t, true, u.IsActive)
+			assert.Equal(t, int64(1), u.Version)
+			assert.LessOrEqual(t, u.CreatedAt, u.UpdatedAt)
+		})
+
+		t.Run("InvalidToken", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getByID-invalid-jwt-%s", s.reqID))
+			_, err := s.invJWTUserClient.GetByID(ctx, sysUserID)
+			assert.NotNil(t, err)
+			var httpErr user.HTTPError
+			assert.True(t, errors.As(err, &httpErr))
+			assert.Equal(t, 401, httpErr.StatusCode)
+		})
 	})
 
 	t.Run("GetAll", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getByID-valid-%s", s.reqID))
-		users, err := s.userClient.GetAll(ctx)
-		assert.Nil(t, err)
-		assert.GreaterOrEqual(t, 1, len(users))
-		found := false
-		for _, u := range users {
-			if u.ID == sysUserID {
-				found = true
-				assert.NotNil(t, u.ID)
-				assert.Equal(t, sysUserID, u.ID)
-				assert.Equal(t, sysOrgID, u.OrgID)
-				assert.Equal(t, "System Admin", u.Name)
-				assert.Equal(t, true, u.IsSystem)
-				assert.Equal(t, true, u.IsAdmin)
-				assert.Equal(t, true, u.IsActive)
-				assert.Equal(t, int64(1), u.Version)
-				assert.LessOrEqual(t, u.CreatedAt, u.UpdatedAt)
-			}
-		}
-		assert.True(t, found)
-	})
-
-	t.Run("GetAllByOrgID", func(t *testing.T) {
-		t.Run("Found", func(t *testing.T) {
-			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getAllByOrgID-valid-%s", s.reqID))
-			users, err := s.userClient.GetAllByOrgID(ctx, sysOrgID)
+		t.Run("Valid", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getAll-valid-%s", s.reqID))
+			users, err := s.userClient.GetAll(ctx)
 			assert.Nil(t, err)
-			assert.GreaterOrEqual(t, 1, len(users))
+			assert.GreaterOrEqual(t, len(users), 1)
 			found := false
 			for _, u := range users {
 				if u.ID == sysUserID {
@@ -185,18 +242,108 @@ func TestUserAPI(t *testing.T) {
 			}
 			assert.True(t, found)
 		})
+
+		t.Run("NonAdminToken", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getAll-non-admin-jwt-%s", s.reqID))
+			users, err := s.nonAdminUserClient.GetAll(ctx)
+			assert.Nil(t, err)
+			assert.GreaterOrEqual(t, len(users), 1)
+			found := false
+			for _, u := range users {
+				if u.ID == sysUserID {
+					found = true
+					assert.NotNil(t, u.ID)
+					assert.Equal(t, sysUserID, u.ID)
+					assert.Equal(t, sysOrgID, u.OrgID)
+					assert.Equal(t, "System Admin", u.Name)
+					assert.Equal(t, true, u.IsSystem)
+					assert.Equal(t, true, u.IsAdmin)
+					assert.Equal(t, true, u.IsActive)
+					assert.Equal(t, int64(1), u.Version)
+					assert.LessOrEqual(t, u.CreatedAt, u.UpdatedAt)
+				}
+			}
+			assert.True(t, found)
+		})
+
+		t.Run("InvalidToken", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getAll-invalid-jwt-%s", s.reqID))
+			_, err := s.invJWTUserClient.GetAll(ctx)
+			assert.NotNil(t, err)
+			var httpErr user.HTTPError
+			assert.True(t, errors.As(err, &httpErr))
+			assert.Equal(t, 401, httpErr.StatusCode)
+		})
+	})
+
+	t.Run("GetAllByOrgID", func(t *testing.T) {
+		t.Run("Found", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getAllByOrgID-valid-%s", s.reqID))
+			users, err := s.userClient.GetAllByOrgID(ctx, sysOrgID)
+			assert.Nil(t, err)
+			assert.GreaterOrEqual(t, len(users), 1)
+			found := false
+			for _, u := range users {
+				if u.ID == sysUserID {
+					found = true
+					assert.NotNil(t, u.ID)
+					assert.Equal(t, sysUserID, u.ID)
+					assert.Equal(t, sysOrgID, u.OrgID)
+					assert.Equal(t, "System Admin", u.Name)
+					assert.Equal(t, true, u.IsSystem)
+					assert.Equal(t, true, u.IsAdmin)
+					assert.Equal(t, true, u.IsActive)
+					assert.Equal(t, int64(1), u.Version)
+					assert.LessOrEqual(t, u.CreatedAt, u.UpdatedAt)
+				}
+			}
+			assert.True(t, found)
+		})
+
 		t.Run("Empty", func(t *testing.T) {
-			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("searchByName-empty-%s", s.reqID))
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getAllByOrgID-empty-%s", s.reqID))
 			users, err := s.userClient.GetAllByOrgID(ctx, s.testOrg.ID)
 			assert.Nil(t, err)
 			assert.Len(t, users, 0)
 		})
+
 		t.Run("OrgNotFound", func(t *testing.T) {
-			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("searchByName-org-not-found-%s", s.reqID))
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getAllByOrgID-org-not-found-%s", s.reqID))
 			users, err := s.userClient.GetAllByOrgID(ctx, "will-not-find")
 			assert.Nil(t, err)
-			// TODO - error? 400?
 			assert.Len(t, users, 0)
+		})
+
+		t.Run("NonAdminToken", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getAllByOrgID-non-admin-jwt-%s", s.reqID))
+			users, err := s.nonAdminUserClient.GetAllByOrgID(ctx, sysOrgID)
+			assert.Nil(t, err)
+			assert.GreaterOrEqual(t, len(users), 1)
+			found := false
+			for _, u := range users {
+				if u.ID == sysUserID {
+					found = true
+					assert.NotNil(t, u.ID)
+					assert.Equal(t, sysUserID, u.ID)
+					assert.Equal(t, sysOrgID, u.OrgID)
+					assert.Equal(t, "System Admin", u.Name)
+					assert.Equal(t, true, u.IsSystem)
+					assert.Equal(t, true, u.IsAdmin)
+					assert.Equal(t, true, u.IsActive)
+					assert.Equal(t, int64(1), u.Version)
+					assert.LessOrEqual(t, u.CreatedAt, u.UpdatedAt)
+				}
+			}
+			assert.True(t, found)
+		})
+
+		t.Run("InvalidToken", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getAllByOrgID-invalid-jwt-%s", s.reqID))
+			_, err := s.invJWTUserClient.GetAllByOrgID(ctx, sysOrgID)
+			assert.NotNil(t, err)
+			var httpErr user.HTTPError
+			assert.True(t, errors.As(err, &httpErr))
+			assert.Equal(t, 401, httpErr.StatusCode)
 		})
 	})
 
@@ -278,7 +425,34 @@ func TestUserAPI(t *testing.T) {
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 403, httpErr.StatusCode)
 		})
+
+		t.Run("NonAdminToken", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-non-admin-jwt-%s", s.reqID))
+			_, err := s.nonAdminUserClient.Save(ctx, user.User{
+				Name:  "Test-" + uuid.NewString(),
+				Email: "foo+" + uuid.NewString() + "@bar.com",
+				OrgID: s.testOrg.ID,
+			})
+			assert.NotNil(t, err)
+			var httpErr user.HTTPError
+			assert.True(t, errors.As(err, &httpErr))
+			assert.Equal(t, 403, httpErr.StatusCode)
+		})
+
+		t.Run("InvalidToken", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-invalid-jwt-%s", s.reqID))
+			_, err := s.invJWTUserClient.Save(ctx, user.User{
+				Name:  "Test-" + uuid.NewString(),
+				Email: "foo+" + uuid.NewString() + "@bar.com",
+				OrgID: s.testOrg.ID,
+			})
+			assert.NotNil(t, err)
+			var httpErr user.HTTPError
+			assert.True(t, errors.As(err, &httpErr))
+			assert.Equal(t, 401, httpErr.StatusCode)
+		})
 	})
+
 	t.Run("Update", func(t *testing.T) {
 		t.Run("Valid", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-valid-setup-%s", s.reqID))
@@ -405,6 +579,7 @@ func TestUserAPI(t *testing.T) {
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 400, httpErr.StatusCode)
 		})
+
 		t.Run("SysOrgID", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-sys-org-id-%s", s.reqID))
 			u, err := s.userClient.Save(ctx, user.User{
@@ -421,7 +596,44 @@ func TestUserAPI(t *testing.T) {
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 403, httpErr.StatusCode)
 		})
+
+		t.Run("NonAdminToken", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-non-admin-jwt-setup-%s", s.reqID))
+			u, err := s.userClient.Save(ctx, user.User{
+				Name:  "Test-" + uuid.NewString(),
+				Email: "foo+" + uuid.NewString() + "@bar.com",
+				OrgID: s.testOrg.ID,
+			})
+			s.addUserToCleanup(u)
+			assert.Nil(t, err)
+			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-non-admin-jwt-%s", s.reqID))
+			u.Name = u.Name + "-updated"
+			_, err = s.nonAdminUserClient.Save(ctx, u)
+			assert.NotNil(t, err)
+			var httpErr user.HTTPError
+			assert.True(t, errors.As(err, &httpErr))
+			assert.Equal(t, 403, httpErr.StatusCode)
+		})
+
+		t.Run("InvalidToken", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-invalid-jwt-setup-%s", s.reqID))
+			u, err := s.userClient.Save(ctx, user.User{
+				Name:  "Test-" + uuid.NewString(),
+				Email: "foo+" + uuid.NewString() + "@bar.com",
+				OrgID: s.testOrg.ID,
+			})
+			s.addUserToCleanup(u)
+			assert.Nil(t, err)
+			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-invalid-jwt-%s", s.reqID))
+			u.Name = u.Name + "-updated"
+			_, err = s.invJWTUserClient.Save(ctx, u)
+			assert.NotNil(t, err)
+			var httpErr user.HTTPError
+			assert.True(t, errors.As(err, &httpErr))
+			assert.Equal(t, 401, httpErr.StatusCode)
+		})
 	})
+
 	t.Run("Delete", func(t *testing.T) {
 		t.Run("Valid", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-valid-setup-%s", s.reqID))
@@ -468,7 +680,7 @@ func TestUserAPI(t *testing.T) {
 			})
 			s.addUserToCleanup(u)
 			assert.Nil(t, err)
-			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-vmissing-version-%s", s.reqID))
+			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-missing-version-%s", s.reqID))
 			err = s.userClient.Delete(ctx, user.DeleteUser{ID: u.ID})
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
@@ -489,6 +701,40 @@ func TestUserAPI(t *testing.T) {
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 403, httpErr.StatusCode)
+		})
+
+		t.Run("NonAdminToken", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-non-admin-jwt-setup-%s", s.reqID))
+			u, err := s.userClient.Save(ctx, user.User{
+				Name:  "Test-" + uuid.NewString(),
+				Email: "foo+" + uuid.NewString() + "@bar.com",
+				OrgID: s.testOrg.ID,
+			})
+			s.addUserToCleanup(u)
+			assert.Nil(t, err)
+			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-non-admin-jwt-%s", s.reqID))
+			err = s.nonAdminUserClient.Delete(ctx, user.DeleteUser{ID: u.ID, Version: u.Version})
+			assert.NotNil(t, err)
+			var httpErr user.HTTPError
+			assert.True(t, errors.As(err, &httpErr))
+			assert.Equal(t, 403, httpErr.StatusCode)
+		})
+
+		t.Run("InvalidToken", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-invalid-jwt-setup-%s", s.reqID))
+			u, err := s.userClient.Save(ctx, user.User{
+				Name:  "Test-" + uuid.NewString(),
+				Email: "foo+" + uuid.NewString() + "@bar.com",
+				OrgID: s.testOrg.ID,
+			})
+			s.addUserToCleanup(u)
+			assert.Nil(t, err)
+			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-invalid-jwt-%s", s.reqID))
+			err = s.invJWTUserClient.Delete(ctx, user.DeleteUser{ID: u.ID, Version: u.Version})
+			assert.NotNil(t, err)
+			var httpErr user.HTTPError
+			assert.True(t, errors.As(err, &httpErr))
+			assert.Equal(t, 401, httpErr.StatusCode)
 		})
 	})
 }

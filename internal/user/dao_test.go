@@ -28,8 +28,8 @@ const (
 	name        = "foo-name"
 	email       = "foo@bar.com"
 	isAdmin     = true
-	createdBy   = "TODO"
-	updatedBy   = "TODO"
+	createdBy   = "logged-in-user-id"
+	updatedBy   = "logged-in-user-id"
 	version     = int64(3)
 )
 

@@ -70,25 +70,31 @@ func main() {
 	})
 
 	authorized := r.Group("/api")
-	authorized.Use(mdlw.Auth(log))
+	authorized.Use(mdlw.Auth(log, cfg.AuthConfig))
+
+	adminPriv := r.Group("/api")
+	adminPriv.Use(mdlw.Auth(log, cfg.AuthConfig))
+	adminPriv.Use(mdlw.RequiresAdmin(log))
 
 	authorized.GET("/orgs/:id", orgCtrl.GetByID)
 	authorized.GET("/orgs", orgCtrl.GetAll)
-	authorized.POST("/orgs", orgCtrl.Save)
-	authorized.PUT("/orgs", orgCtrl.Save)
-	authorized.POST("/orgs/:id", orgCtrl.Save)
-	authorized.PUT("/orgs/:id", orgCtrl.Save)
-	authorized.DELETE("/orgs/:id", orgCtrl.Delete)
+
+	adminPriv.POST("/orgs", orgCtrl.Save)
+	adminPriv.PUT("/orgs", orgCtrl.Save)
+	adminPriv.POST("/orgs/:id", orgCtrl.Save)
+	adminPriv.PUT("/orgs/:id", orgCtrl.Save)
+	adminPriv.DELETE("/orgs/:id", orgCtrl.Delete)
 
 	authorized.GET("/orgs/:id/users", userCtrl.GetAllByOrgID)
 
 	authorized.GET("/users/:id", userCtrl.GetByID)
 	authorized.GET("/users", userCtrl.GetAll)
-	authorized.POST("/users", userCtrl.Save)
-	authorized.PUT("/users", userCtrl.Save)
-	authorized.POST("/users/:id", userCtrl.Save)
-	authorized.PUT("/users/:id", userCtrl.Save)
-	authorized.DELETE("/users/:id", userCtrl.Delete)
+
+	adminPriv.POST("/users", userCtrl.Save)
+	adminPriv.PUT("/users", userCtrl.Save)
+	adminPriv.POST("/users/:id", userCtrl.Save)
+	adminPriv.PUT("/users/:id", userCtrl.Save)
+	adminPriv.DELETE("/users/:id", userCtrl.Delete)
 
 	r.Run(fmt.Sprintf(":%v", cfg.Port))
 }

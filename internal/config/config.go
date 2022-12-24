@@ -7,9 +7,16 @@ import (
 )
 
 type Config struct {
-	Port     int    `envconfig:"PORT" default:"4000"`
-	LogLevel string `envconfig:"LOG_LEVEL" default:"debug"`
-	DB       DBConfig
+	Port       int    `envconfig:"PORT" default:"4000"`
+	LogLevel   string `envconfig:"LOG_LEVEL" default:"debug"`
+	DB         DBConfig
+	AuthConfig AuthConfig
+}
+
+type AuthConfig struct {
+	JWTSecret   string `envconfig:"JWT_SECRET"`
+	JWTAudience string `envconfig:"JWT_AUDIENCE" default:"gin-ex"`
+	JWTIssuer   string `envconfig:"JWT_ISSUER" default:"something"`
 }
 
 type DBConfig struct {

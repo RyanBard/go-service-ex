@@ -1,13 +1,142 @@
 package mdlw
 
 import (
+	"context"
+	"fmt"
+	"github.com/RyanBard/gin-ex/internal/config"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
+
+var (
+	cfg = config.AuthConfig{
+		JWTSecret:   "jwt-secret",
+		JWTAudience: "jwt-audience",
+		JWTIssuer:   "jwt-issuer",
+	}
+)
+
+const (
+	nonAdminUserID = "non-admin-id"
+	adminUserID    = "admin-id"
+)
+
+func basic(token string) string {
+	return fmt.Sprintf("Basic %s", token)
+}
+
+func bearer(token string) string {
+	return fmt.Sprintf("Bearer %s", token)
+}
+
+func validClaims(userID string) jwt.MapClaims {
+	return jwt.MapClaims{
+		"sub": userID,
+		"aud": cfg.JWTAudience,
+		"iss": cfg.JWTIssuer,
+		"exp": time.Now().AddDate(0, 0, 1).Unix(),
+	}
+}
+
+func hmacJWT(claims jwt.MapClaims) string {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := token.SignedString([]byte(cfg.JWTSecret))
+	if err != nil {
+		logrus.WithError(err).Fatal("failed to sign jwt")
+	}
+	return tokenStr
+}
+
+func validNonAdminJWT() string {
+	return hmacJWT(validClaims(nonAdminUserID))
+}
+
+func validAdminFalseJWT() string {
+	claims := validClaims(nonAdminUserID)
+	claims["admin"] = false
+	return hmacJWT(claims)
+}
+
+func validAdminJWT() string {
+	claims := validClaims(adminUserID)
+	claims["admin"] = true
+	return hmacJWT(claims)
+}
+
+func invalidExpiredJWT() string {
+	claims := validClaims(adminUserID)
+	claims["exp"] = time.Now().AddDate(0, 0, -1).Unix()
+	return hmacJWT(claims)
+}
+
+func invalidIssuerJWT() string {
+	claims := validClaims(adminUserID)
+	claims["iss"] = "wrong"
+	return hmacJWT(claims)
+}
+
+func invalidAudienceJWT() string {
+	claims := validClaims(adminUserID)
+	claims["aud"] = "wrong"
+	return hmacJWT(claims)
+}
+
+func invalidHMACSigningMethodJWT() string {
+	claims := validClaims(adminUserID)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
+	tokenStr, err := token.SignedString([]byte(cfg.JWTSecret))
+	if err != nil {
+		logrus.WithError(err).Fatal("failed to sign jwt")
+	}
+	return tokenStr
+}
+
+func invalidRSAJWT() string {
+	claims := validClaims(adminUserID)
+	signBytes := []byte(`
+-----BEGIN RSA PRIVATE KEY-----
+MIICWgIBAAKBgGKGCOfH0qBzdZpCQJQlz6F455KgOieMkS0FIcQj0pd2mejAU1Rw
+A07bUhLRtuNqJKdfDPG5dGsLyV31avGYzJ2QGNIKjyCzIYBxPKoT4JbRZkRpdZOb
+fYGZ3Ru215o9/sLCzFik0bx+RrXEszd74tgLi8CpiZlICaOemG79SmSvAgMBAAEC
+gYA8OAKPcMJbkdaqv53rLyU2Y8jfBRImhDNj2gQmd2LLcxFlgtAsBv7unv0ORaJM
+Y98dcepegOUYXK7qwAtqueMuFPWl4u29GUKvV9ux0iipmCXAYnTnlKRiTp260Oom
+BnaFceROpYJmfP7A3XBGzZ0RClHQvccjYHMtpA0yDldAUQJBAJ9UXnRbh7jQaNsc
+COe+hT4Co+f6XOXcaC6LyDZtRGeM4MSPMAAu46VU79FE09fC5RzIhK5ukumpxOa6
+/19wvOcCQQCeTRBw7QXT1q1XPARAWCmqCuyjoEFNVidTZxjhVwJ27fGB8AevuvxI
+TDy7FpOpuVuwkUAwTdtnwljAOAufCxj5AkAOulPI2bUgBlPK/TptgZT7eG8CQIhZ
+zxfqRY2KSmtqTwFv6fR779mnLMTGSWBzr1ZSZM6u+RWnd8P1uA9nGRq9AkB2OfQX
+gs4hYmnfhvFd5PppBvOpWNysl7WTMqKAWW17yUXf15bGBg65KEcLK1dpIQh7nF+m
+M9+zZJDILpNvWuhxAkBcWGe4crEQsCGREdc+Jqx8EApAfqQRhLb5vCyVNXJudglw
+rqiuE4WB9nCxKD4Es+3u5dJzmWqRK/gYtKurCWVq
+-----END RSA PRIVATE KEY-----
+`)
+	signKey, err := jwt.ParseRSAPrivateKeyFromPEM(signBytes)
+	if err != nil {
+		logrus.WithError(err).Fatal("failed to parse PEM")
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	tokenStr, err := token.SignedString(signKey)
+	if err != nil {
+		logrus.WithError(err).Fatal("failed to sign jwt")
+	}
+	return tokenStr
+}
+
+func invalidSecretJWT() string {
+	claims := validClaims(adminUserID)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := token.SignedString([]byte("wrong"))
+	if err != nil {
+		logrus.WithError(err).Fatal("failed to sign jwt")
+	}
+	return tokenStr
+}
 
 func ginContext(headers map[string]string) (*gin.Context, *httptest.ResponseRecorder, error) {
 	gin.SetMode(gin.TestMode)
@@ -56,7 +185,7 @@ func TestAuth_NoHeader(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger())
+	mw := Auth(logrus.StandardLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
@@ -66,10 +195,10 @@ func TestAuth_NoHeader(t *testing.T) {
 }
 
 func TestAuth_NotBearer(t *testing.T) {
-	gc, w, err := ginContext(map[string]string{"Authorization": "Basic foo"})
+	gc, w, err := ginContext(map[string]string{"Authorization": basic(validAdminJWT())})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger())
+	mw := Auth(logrus.StandardLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
@@ -79,10 +208,10 @@ func TestAuth_NotBearer(t *testing.T) {
 }
 
 func TestAuth_MalformedTooManyParts(t *testing.T) {
-	gc, w, err := ginContext(map[string]string{"Authorization": "Bearer Bearer foo"})
+	gc, w, err := ginContext(map[string]string{"Authorization": bearer(bearer(validAdminJWT()))})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger())
+	mw := Auth(logrus.StandardLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
@@ -91,11 +220,11 @@ func TestAuth_MalformedTooManyParts(t *testing.T) {
 	assert.Nil(t, actual)
 }
 
-func TestAuth_InvalidToken(t *testing.T) {
-	gc, w, err := ginContext(map[string]string{"Authorization": "Bearer bar"})
+func TestAuth_InvalidExpiredToken(t *testing.T) {
+	gc, w, err := ginContext(map[string]string{"Authorization": bearer(invalidExpiredJWT())})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger())
+	mw := Auth(logrus.StandardLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
@@ -104,17 +233,146 @@ func TestAuth_InvalidToken(t *testing.T) {
 	assert.Nil(t, actual)
 }
 
-func TestAuth_ValidToken(t *testing.T) {
-	expected := "TODO"
-
-	gc, w, err := ginContext(map[string]string{"Authorization": "Bearer foo"})
+func TestAuth_InvalidIssuerToken(t *testing.T) {
+	gc, w, err := ginContext(map[string]string{"Authorization": bearer(invalidIssuerJWT())})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger())
+	mw := Auth(logrus.StandardLogger(), cfg)
+	mw(gc)
+	c := gc.Request.Context()
+
+	assert.Equal(t, 401, w.Result().StatusCode)
+	actual := c.Value("userID")
+	assert.Nil(t, actual)
+}
+
+func TestAuth_InvalidAudienceToken(t *testing.T) {
+	gc, w, err := ginContext(map[string]string{"Authorization": bearer(invalidAudienceJWT())})
+	assert.Nil(t, err)
+
+	mw := Auth(logrus.StandardLogger(), cfg)
+	mw(gc)
+	c := gc.Request.Context()
+
+	assert.Equal(t, 401, w.Result().StatusCode)
+	actual := c.Value("userID")
+	assert.Nil(t, actual)
+}
+
+func TestAuth_InvalidSecretToken(t *testing.T) {
+	gc, w, err := ginContext(map[string]string{"Authorization": bearer(invalidSecretJWT())})
+	assert.Nil(t, err)
+
+	mw := Auth(logrus.StandardLogger(), cfg)
+	mw(gc)
+	c := gc.Request.Context()
+
+	assert.Equal(t, 401, w.Result().StatusCode)
+	actual := c.Value("userID")
+	assert.Nil(t, actual)
+}
+
+func TestAuth_InvalidHMACAlgToken(t *testing.T) {
+	gc, w, err := ginContext(map[string]string{"Authorization": bearer(invalidHMACSigningMethodJWT())})
+	assert.Nil(t, err)
+
+	mw := Auth(logrus.StandardLogger(), cfg)
+	mw(gc)
+	c := gc.Request.Context()
+
+	assert.Equal(t, 401, w.Result().StatusCode)
+	actual := c.Value("userID")
+	assert.Nil(t, actual)
+}
+
+func TestAuth_InvalidRSAToken(t *testing.T) {
+	gc, w, err := ginContext(map[string]string{"Authorization": bearer(invalidRSAJWT())})
+	assert.Nil(t, err)
+
+	mw := Auth(logrus.StandardLogger(), cfg)
+	mw(gc)
+	c := gc.Request.Context()
+
+	assert.Equal(t, 401, w.Result().StatusCode)
+	actual := c.Value("userID")
+	assert.Nil(t, actual)
+}
+
+func TestAuth_ValidNonAdminToken(t *testing.T) {
+	gc, w, err := ginContext(map[string]string{"Authorization": bearer(validNonAdminJWT())})
+	assert.Nil(t, err)
+
+	mw := Auth(logrus.StandardLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
 	assert.Equal(t, 200, w.Result().StatusCode)
 	actual := c.Value("userID")
-	assert.Equal(t, expected, actual)
+	assert.Equal(t, nonAdminUserID, actual)
+}
+
+func TestAuth_ValidAdminToken(t *testing.T) {
+	gc, w, err := ginContext(map[string]string{"Authorization": bearer(validAdminJWT())})
+	assert.Nil(t, err)
+
+	mw := Auth(logrus.StandardLogger(), cfg)
+	mw(gc)
+	c := gc.Request.Context()
+
+	assert.Equal(t, 200, w.Result().StatusCode)
+	actual := c.Value("userID")
+	assert.Equal(t, adminUserID, actual)
+}
+
+func TestRequiresAdmin_Admin(t *testing.T) {
+	gc, w, err := ginContext(map[string]string{})
+	assert.Nil(t, err)
+
+	claims := jwt.MapClaims{
+		"admin": true,
+	}
+	gc.Request = gc.Request.WithContext(context.WithValue(gc.Request.Context(), "jwtClaims", claims))
+
+	mw := RequiresAdmin(logrus.StandardLogger())
+	mw(gc)
+
+	assert.Equal(t, 200, w.Result().StatusCode)
+}
+
+func TestRequiresAdmin_NonAdmin(t *testing.T) {
+	gc, w, err := ginContext(map[string]string{})
+	assert.Nil(t, err)
+
+	claims := jwt.MapClaims{}
+	gc.Request = gc.Request.WithContext(context.WithValue(gc.Request.Context(), "jwtClaims", claims))
+
+	mw := RequiresAdmin(logrus.StandardLogger())
+	mw(gc)
+
+	assert.Equal(t, 403, w.Result().StatusCode)
+}
+
+func TestRequiresAdmin_AdminFalse(t *testing.T) {
+	gc, w, err := ginContext(map[string]string{})
+	assert.Nil(t, err)
+
+	claims := jwt.MapClaims{
+		"admin": false,
+	}
+	gc.Request = gc.Request.WithContext(context.WithValue(gc.Request.Context(), "jwtClaims", claims))
+
+	mw := RequiresAdmin(logrus.StandardLogger())
+	mw(gc)
+
+	assert.Equal(t, 403, w.Result().StatusCode)
+}
+
+func TestRequiresAdmin_NoClaimsAvailable(t *testing.T) {
+	gc, w, err := ginContext(map[string]string{})
+	assert.Nil(t, err)
+
+	mw := RequiresAdmin(logrus.StandardLogger())
+	mw(gc)
+
+	assert.Equal(t, 403, w.Result().StatusCode)
 }

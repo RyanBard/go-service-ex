@@ -2,6 +2,7 @@ package org
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -51,9 +52,10 @@ func NewService(log logrus.FieldLogger, dao OrgDAO, txMGR TXManager, timer Timer
 
 func (s service) GetByID(ctx context.Context, id string) (org.Org, error) {
 	log := s.log.WithFields(logrus.Fields{
-		"reqID": ctx.Value("reqID"),
-		"fn":    "GetByID",
-		"id":    id,
+		"reqID":          ctx.Value("reqID"),
+		"fn":             "GetByID",
+		"loggedInUserID": ctx.Value("userID"),
+		"id":             id,
 	})
 	log.Debug("called")
 	return s.dao.GetByID(ctx, id)
@@ -61,9 +63,10 @@ func (s service) GetByID(ctx context.Context, id string) (org.Org, error) {
 
 func (s service) GetAll(ctx context.Context, name string) ([]org.Org, error) {
 	log := s.log.WithFields(logrus.Fields{
-		"reqID": ctx.Value("reqID"),
-		"fn":    "GetAll",
-		"name":  name,
+		"reqID":          ctx.Value("reqID"),
+		"fn":             "GetAll",
+		"loggedInUserID": ctx.Value("userID"),
+		"name":           name,
 	})
 	log.Debug("called")
 	if name == "" {
@@ -74,10 +77,15 @@ func (s service) GetAll(ctx context.Context, name string) ([]org.Org, error) {
 }
 
 func (s service) Save(ctx context.Context, o org.Org) (out org.Org, err error) {
+	loggedInUserID, ok := ctx.Value("userID").(string)
+	if !ok {
+		return out, errors.New("user not logged in")
+	}
 	log := s.log.WithFields(logrus.Fields{
-		"reqID": ctx.Value("reqID"),
-		"fn":    "Save",
-		"org":   o,
+		"reqID":          ctx.Value("reqID"),
+		"fn":             "Save",
+		"loggedInUserID": loggedInUserID,
+		"org":            o,
 	})
 	log.Debug("called")
 	if o.ID != "" {
@@ -95,15 +103,15 @@ func (s service) Save(ctx context.Context, o org.Org) (out org.Org, err error) {
 			o.ID = s.idGen.GenID()
 			o.Version = 1
 			o.CreatedAt = s.timer.Now()
-			o.CreatedBy = "TODO"
+			o.CreatedBy = loggedInUserID
 			o.UpdatedAt = s.timer.Now()
-			o.UpdatedBy = "TODO"
+			o.UpdatedBy = loggedInUserID
 			o.IsSystem = false
 			out = o
 			return s.dao.Create(ctx, tx, o)
 		} else {
 			o.UpdatedAt = s.timer.Now()
-			o.UpdatedBy = "TODO"
+			o.UpdatedBy = loggedInUserID
 			out, err = s.dao.Update(ctx, tx, o)
 			return err
 		}
@@ -116,9 +124,10 @@ func (s service) Save(ctx context.Context, o org.Org) (out org.Org, err error) {
 
 func (s service) Delete(ctx context.Context, o org.DeleteOrg) error {
 	log := s.log.WithFields(logrus.Fields{
-		"reqID": ctx.Value("reqID"),
-		"fn":    "Delete",
-		"o":     o,
+		"reqID":          ctx.Value("reqID"),
+		"fn":             "Delete",
+		"loggedInUserID": ctx.Value("userID"),
+		"o":              o,
 	})
 	log.Debug("called")
 	orgInDB, err := s.GetByID(ctx, o.ID)
