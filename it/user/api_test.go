@@ -120,10 +120,12 @@ func setupSuite(tb testing.TB) (*info, func(tb testing.TB)) {
 
 	return &ui, func(tb testing.TB) {
 		for i, u := range ui.usersToCleanup {
-			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("user-teardown-%s-%s", reqID, i))
-			err := ui.userClient.Delete(ctx, u)
-			if err != nil {
-				log.WithError(err).WithField("user", u).Warn("failed to cleanup user")
+			if u.ID != "" {
+				ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("user-teardown-%s-%s", reqID, i))
+				err := ui.userClient.Delete(ctx, u)
+				if err != nil {
+					log.WithError(err).WithField("user", u).Warn("failed to cleanup user")
+				}
 			}
 		}
 		ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("user-teardown-%s", reqID))
@@ -364,10 +366,11 @@ func TestUserAPI(t *testing.T) {
 
 		t.Run("MissingName", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-missing-name-%s", s.reqID))
-			_, err := s.userClient.Save(ctx, user.User{
+			u, err := s.userClient.Save(ctx, user.User{
 				Email: "foo+" + uuid.NewString() + "@bar.com",
 				OrgID: s.testOrg.ID,
 			})
+			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -376,10 +379,11 @@ func TestUserAPI(t *testing.T) {
 
 		t.Run("MissingEmail", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-missing-email-%s", s.reqID))
-			_, err := s.userClient.Save(ctx, user.User{
+			u, err := s.userClient.Save(ctx, user.User{
 				Name:  "Test-" + uuid.NewString(),
 				OrgID: s.testOrg.ID,
 			})
+			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -402,11 +406,12 @@ func TestUserAPI(t *testing.T) {
 
 		t.Run("OrgIDNotFound", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-orgID-not-found-%s", s.reqID))
-			_, err := s.userClient.Save(ctx, user.User{
+			u, err := s.userClient.Save(ctx, user.User{
 				Name:  "Test-" + uuid.NewString(),
 				Email: "foo+" + uuid.NewString() + "@bar.com",
 				OrgID: "will-not-find",
 			})
+			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -415,11 +420,12 @@ func TestUserAPI(t *testing.T) {
 
 		t.Run("SysOrgID", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-sysOrgID-not-found-%s", s.reqID))
-			_, err := s.userClient.Save(ctx, user.User{
+			u, err := s.userClient.Save(ctx, user.User{
 				Name:  "Test-" + uuid.NewString(),
 				Email: "foo+" + uuid.NewString() + "@bar.com",
 				OrgID: sysOrgID,
 			})
+			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -428,11 +434,12 @@ func TestUserAPI(t *testing.T) {
 
 		t.Run("NonAdminToken", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-non-admin-jwt-%s", s.reqID))
-			_, err := s.nonAdminUserClient.Save(ctx, user.User{
+			u, err := s.nonAdminUserClient.Save(ctx, user.User{
 				Name:  "Test-" + uuid.NewString(),
 				Email: "foo+" + uuid.NewString() + "@bar.com",
 				OrgID: s.testOrg.ID,
 			})
+			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -441,11 +448,12 @@ func TestUserAPI(t *testing.T) {
 
 		t.Run("InvalidToken", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-invalid-jwt-%s", s.reqID))
-			_, err := s.invJWTUserClient.Save(ctx, user.User{
+			u, err := s.invJWTUserClient.Save(ctx, user.User{
 				Name:  "Test-" + uuid.NewString(),
 				Email: "foo+" + uuid.NewString() + "@bar.com",
 				OrgID: s.testOrg.ID,
 			})
+			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -490,7 +498,8 @@ func TestUserAPI(t *testing.T) {
 			assert.Nil(t, err)
 			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-opt-lock-%s", s.reqID))
 			u.Name = u.Name + "-updated-again"
-			_, err = s.userClient.Save(ctx, u)
+			u3, err := s.userClient.Save(ctx, u)
+			s.addUserToCleanup(u3)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -508,7 +517,8 @@ func TestUserAPI(t *testing.T) {
 			assert.Nil(t, err)
 			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-missing-name-%s", s.reqID))
 			u.Name = ""
-			_, err = s.userClient.Save(ctx, u)
+			u2, err := s.userClient.Save(ctx, u)
+			s.addUserToCleanup(u2)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -526,7 +536,8 @@ func TestUserAPI(t *testing.T) {
 			assert.Nil(t, err)
 			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-missing-description-%s", s.reqID))
 			u.Email = ""
-			_, err = s.userClient.Save(ctx, u)
+			u2, err := s.userClient.Save(ctx, u)
+			s.addUserToCleanup(u2)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -535,13 +546,14 @@ func TestUserAPI(t *testing.T) {
 
 		t.Run("NotFound", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-not-found-%s", s.reqID))
-			_, err := s.userClient.Save(ctx, user.User{
+			u, err := s.userClient.Save(ctx, user.User{
 				ID:      "will-not-find",
 				Name:    "Test-" + uuid.NewString(),
 				Email:   "foo+" + uuid.NewString() + "@bar.com",
 				OrgID:   s.testOrg.ID,
 				Version: 1,
 			})
+			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -550,13 +562,14 @@ func TestUserAPI(t *testing.T) {
 
 		t.Run("SysUser", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-sys-org-%s", s.reqID))
-			_, err := s.userClient.Save(ctx, user.User{
+			u, err := s.userClient.Save(ctx, user.User{
 				ID:      sysUserID,
 				Name:    "Test-" + uuid.NewString(),
 				Email:   "foo+" + uuid.NewString() + "@bar.com",
 				OrgID:   s.testOrg.ID,
 				Version: 1,
 			})
+			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -573,7 +586,8 @@ func TestUserAPI(t *testing.T) {
 			s.addUserToCleanup(u)
 			assert.Nil(t, err)
 			u.OrgID = "will-not-find"
-			_, err = s.userClient.Save(ctx, u)
+			u2, err := s.userClient.Save(ctx, u)
+			s.addUserToCleanup(u2)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -590,7 +604,8 @@ func TestUserAPI(t *testing.T) {
 			s.addUserToCleanup(u)
 			assert.Nil(t, err)
 			u.OrgID = sysOrgID
-			_, err = s.userClient.Save(ctx, u)
+			u2, err := s.userClient.Save(ctx, u)
+			s.addUserToCleanup(u2)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -608,7 +623,8 @@ func TestUserAPI(t *testing.T) {
 			assert.Nil(t, err)
 			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-non-admin-jwt-%s", s.reqID))
 			u.Name = u.Name + "-updated"
-			_, err = s.nonAdminUserClient.Save(ctx, u)
+			u2, err := s.nonAdminUserClient.Save(ctx, u)
+			s.addUserToCleanup(u2)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -626,7 +642,8 @@ func TestUserAPI(t *testing.T) {
 			assert.Nil(t, err)
 			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-invalid-jwt-%s", s.reqID))
 			u.Name = u.Name + "-updated"
-			_, err = s.invJWTUserClient.Save(ctx, u)
+			u2, err := s.invJWTUserClient.Save(ctx, u)
+			s.addUserToCleanup(u2)
 			assert.NotNil(t, err)
 			var httpErr user.HTTPError
 			assert.True(t, errors.As(err, &httpErr))

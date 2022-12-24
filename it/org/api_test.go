@@ -93,10 +93,12 @@ func setupSuite(tb testing.TB) (*info, func(tb testing.TB)) {
 	)
 	return &oi, func(tb testing.TB) {
 		for i, o := range oi.orgsToCleanup {
-			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("org-teardown-%s-%s", reqID, i))
-			err := oi.orgClient.Delete(ctx, o)
-			if err != nil {
-				log.WithError(err).WithField("org", o).Warn("failed to cleanup org")
+			if o.ID != "" {
+				ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("org-teardown-%s-%s", reqID, i))
+				err := oi.orgClient.Delete(ctx, o)
+				if err != nil {
+					log.WithError(err).WithField("org", o).Warn("failed to cleanup org")
+				}
 			}
 		}
 	}
@@ -308,9 +310,10 @@ func TestOrgAPI(t *testing.T) {
 
 		t.Run("MissingName", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-missing-name-%s", s.reqID))
-			_, err := s.orgClient.Save(ctx, org.Org{
+			o, err := s.orgClient.Save(ctx, org.Org{
 				Desc: "Integration Test",
 			})
+			s.addOrgToCleanup(o)
 			assert.NotNil(t, err)
 			var httpErr org.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -319,9 +322,10 @@ func TestOrgAPI(t *testing.T) {
 
 		t.Run("MissingDescription", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-missing-description-%s", s.reqID))
-			_, err := s.orgClient.Save(ctx, org.Org{
+			o, err := s.orgClient.Save(ctx, org.Org{
 				Name: "Test-" + uuid.NewString(),
 			})
+			s.addOrgToCleanup(o)
 			assert.NotNil(t, err)
 			var httpErr org.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -343,10 +347,11 @@ func TestOrgAPI(t *testing.T) {
 
 		t.Run("NonAdminToken", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-non-admin-jwt-%s", s.reqID))
-			_, err := s.nonAdminOrgClient.Save(ctx, org.Org{
+			o, err := s.nonAdminOrgClient.Save(ctx, org.Org{
 				Name: "Test-" + uuid.NewString(),
 				Desc: "Integration Test",
 			})
+			s.addOrgToCleanup(o)
 			assert.NotNil(t, err)
 			var httpErr org.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -355,10 +360,11 @@ func TestOrgAPI(t *testing.T) {
 
 		t.Run("InvalidToken", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-invalid-jwt-%s", s.reqID))
-			_, err := s.invJWTOrgClient.Save(ctx, org.Org{
+			o, err := s.invJWTOrgClient.Save(ctx, org.Org{
 				Name: "Test-" + uuid.NewString(),
 				Desc: "Integration Test",
 			})
+			s.addOrgToCleanup(o)
 			assert.NotNil(t, err)
 			var httpErr org.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -401,7 +407,8 @@ func TestOrgAPI(t *testing.T) {
 			assert.Nil(t, err)
 			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-opt-lock-%s", s.reqID))
 			o.Name = o.Name + "-updated-again"
-			_, err = s.orgClient.Save(ctx, o)
+			o3, err := s.orgClient.Save(ctx, o)
+			s.addOrgToCleanup(o3)
 			assert.NotNil(t, err)
 			var httpErr org.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -418,7 +425,8 @@ func TestOrgAPI(t *testing.T) {
 			assert.Nil(t, err)
 			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-missing-name-%s", s.reqID))
 			o.Name = ""
-			_, err = s.orgClient.Save(ctx, o)
+			o2, err := s.orgClient.Save(ctx, o)
+			s.addOrgToCleanup(o2)
 			assert.NotNil(t, err)
 			var httpErr org.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -435,7 +443,8 @@ func TestOrgAPI(t *testing.T) {
 			assert.Nil(t, err)
 			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-missing-description-%s", s.reqID))
 			o.Desc = ""
-			_, err = s.orgClient.Save(ctx, o)
+			o2, err := s.orgClient.Save(ctx, o)
+			s.addOrgToCleanup(o2)
 			assert.NotNil(t, err)
 			var httpErr org.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -444,12 +453,13 @@ func TestOrgAPI(t *testing.T) {
 
 		t.Run("NotFound", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-not-found-%s", s.reqID))
-			_, err := s.orgClient.Save(ctx, org.Org{
+			o, err := s.orgClient.Save(ctx, org.Org{
 				ID:      "will-not-find",
 				Name:    "Test-" + uuid.NewString(),
 				Desc:    "Integration Test",
 				Version: 1,
 			})
+			s.addOrgToCleanup(o)
 			assert.NotNil(t, err)
 			var httpErr org.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -458,12 +468,13 @@ func TestOrgAPI(t *testing.T) {
 
 		t.Run("SysOrg", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-sys-org-%s", s.reqID))
-			_, err := s.orgClient.Save(ctx, org.Org{
+			o, err := s.orgClient.Save(ctx, org.Org{
 				ID:      sysOrgID,
 				Name:    "Test-" + uuid.NewString(),
 				Desc:    "Integration Test",
 				Version: 1,
 			})
+			s.addOrgToCleanup(o)
 			assert.NotNil(t, err)
 			var httpErr org.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -480,7 +491,8 @@ func TestOrgAPI(t *testing.T) {
 			assert.Nil(t, err)
 			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-non-admin-jwt-%s", s.reqID))
 			o.Desc = o.Desc + "-updated"
-			_, err = s.nonAdminOrgClient.Save(ctx, o)
+			o2, err := s.nonAdminOrgClient.Save(ctx, o)
+			s.addOrgToCleanup(o2)
 			assert.NotNil(t, err)
 			var httpErr org.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
@@ -497,7 +509,8 @@ func TestOrgAPI(t *testing.T) {
 			assert.Nil(t, err)
 			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-invalid-jwt-%s", s.reqID))
 			o.Desc = o.Desc + "-updated"
-			_, err = s.invJWTOrgClient.Save(ctx, o)
+			o2, err := s.invJWTOrgClient.Save(ctx, o)
+			s.addOrgToCleanup(o2)
 			assert.NotNil(t, err)
 			var httpErr org.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
