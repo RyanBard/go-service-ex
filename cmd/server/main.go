@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 	"github.com/RyanBard/gin-ex/internal/config"
-	"github.com/RyanBard/gin-ex/internal/db"
 	"github.com/RyanBard/gin-ex/internal/idgen"
 	"github.com/RyanBard/gin-ex/internal/mdlw"
 	"github.com/RyanBard/gin-ex/internal/org"
 	"github.com/RyanBard/gin-ex/internal/timer"
+	"github.com/RyanBard/gin-ex/internal/tx"
 	"github.com/RyanBard/gin-ex/internal/user"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -43,7 +43,7 @@ func main() {
 		),
 	)
 
-	txMGR := db.NewTXMGR(log, dbx)
+	txMGR := tx.NewTXMGR(log, dbx)
 
 	validate := validator.New()
 
