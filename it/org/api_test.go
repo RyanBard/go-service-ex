@@ -141,6 +141,8 @@ func TestOrgAPI(t *testing.T) {
 	s, teardown := setupSuite(t)
 	defer teardown(t)
 
+	s.log.WithField("reqID", s.reqID).Info("User Integration Test run")
+
 	t.Run("GetByID", func(t *testing.T) {
 		t.Run("Found", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getByID-valid-%s", s.reqID))
