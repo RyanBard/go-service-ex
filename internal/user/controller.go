@@ -36,14 +36,16 @@ func NewController(log logrus.FieldLogger, validate *validator.Validate, service
 }
 
 func (ctr ctrl) GetByID(c *gin.Context) {
+	ctx := c.Request.Context()
 	id := c.Param("id")
 	log := ctr.log.WithFields(logrus.Fields{
-		"reqID": c.Request.Context().Value("reqID"),
-		"fn":    "GetByID",
-		"id":    id,
+		"reqID":          ctx.Value("reqID"),
+		"loggedInUserID": ctx.Value("userID"),
+		"fn":             "GetByID",
+		"id":             id,
 	})
 	log.Debug("called")
-	u, err := ctr.service.GetByID(c.Request.Context(), id)
+	u, err := ctr.service.GetByID(ctx, id)
 	if err != nil {
 		var statusCode int
 		var notFound NotFoundErr
@@ -62,12 +64,14 @@ func (ctr ctrl) GetByID(c *gin.Context) {
 }
 
 func (ctr ctrl) GetAll(c *gin.Context) {
+	ctx := c.Request.Context()
 	log := ctr.log.WithFields(logrus.Fields{
-		"reqID": c.Request.Context().Value("reqID"),
-		"fn":    "GetAll",
+		"reqID":          ctx.Value("reqID"),
+		"loggedInUserID": ctx.Value("userID"),
+		"fn":             "GetAll",
 	})
 	log.Debug("called")
-	u, err := ctr.service.GetAll(c.Request.Context())
+	u, err := ctr.service.GetAll(ctx)
 	if err != nil {
 		log.WithError(err).Error("service call failed")
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -78,14 +82,16 @@ func (ctr ctrl) GetAll(c *gin.Context) {
 }
 
 func (ctr ctrl) GetAllByOrgID(c *gin.Context) {
+	ctx := c.Request.Context()
 	orgID := c.Param("id")
 	log := ctr.log.WithFields(logrus.Fields{
-		"reqID": c.Request.Context().Value("reqID"),
-		"fn":    "GetAll",
-		"id":    orgID,
+		"reqID":          ctx.Value("reqID"),
+		"loggedInUserID": ctx.Value("userID"),
+		"fn":             "GetAll",
+		"id":             orgID,
 	})
 	log.Debug("called")
-	u, err := ctr.service.GetAllByOrgID(c.Request.Context(), orgID)
+	u, err := ctr.service.GetAllByOrgID(ctx, orgID)
 	if err != nil {
 		var statusCode int
 		var orgNotFound org.NotFoundErr
@@ -104,11 +110,13 @@ func (ctr ctrl) GetAllByOrgID(c *gin.Context) {
 }
 
 func (ctr ctrl) Save(c *gin.Context) {
+	ctx := c.Request.Context()
 	pathID := c.Param("id")
 	log := ctr.log.WithFields(logrus.Fields{
-		"reqID":  c.Request.Context().Value("reqID"),
-		"fn":     "Save",
-		"pathID": pathID,
+		"reqID":          ctx.Value("reqID"),
+		"loggedInUserID": ctx.Value("userID"),
+		"fn":             "Save",
+		"pathID":         pathID,
 	})
 	log.Debug("called")
 	bytes, err := io.ReadAll(c.Request.Body)
@@ -136,7 +144,7 @@ func (ctr ctrl) Save(c *gin.Context) {
 		"user": u,
 	})
 	log.Debug("body processed, about to call service")
-	u, err = ctr.service.Save(c.Request.Context(), u)
+	u, err = ctr.service.Save(ctx, u)
 	if err != nil {
 		var statusCode int
 		var notFound NotFoundErr
@@ -172,11 +180,13 @@ func (ctr ctrl) Save(c *gin.Context) {
 }
 
 func (ctr ctrl) Delete(c *gin.Context) {
+	ctx := c.Request.Context()
 	pathID := c.Param("id")
 	log := ctr.log.WithFields(logrus.Fields{
-		"reqID":  c.Request.Context().Value("reqID"),
-		"fn":     "Delete",
-		"pathID": pathID,
+		"reqID":          ctx.Value("reqID"),
+		"loggedInUserID": ctx.Value("userID"),
+		"fn":             "Delete",
+		"pathID":         pathID,
 	})
 	log.Debug("called")
 	bytes, err := io.ReadAll(c.Request.Body)
@@ -204,7 +214,7 @@ func (ctr ctrl) Delete(c *gin.Context) {
 		"user": u,
 	})
 	log.Debug("body processed, about to call service")
-	if err := ctr.service.Delete(c.Request.Context(), u); err != nil {
+	if err := ctr.service.Delete(ctx, u); err != nil {
 		var statusCode int
 		var notFound NotFoundErr
 		var modSysUser CannotModifySysUserErr

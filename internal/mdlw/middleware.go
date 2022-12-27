@@ -77,7 +77,7 @@ func validateJWT(cfg config.AuthConfig, tokenStr string) (jwt.MapClaims, error) 
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return nil, errors.New("coult not cast to jwt.MapClaims")
+		return nil, errors.New("could not cast to jwt.MapClaims")
 	}
 	if !claims.VerifyAudience(cfg.JWTAudience, true) {
 		return nil, errors.New("audience was invalid")
@@ -90,12 +90,14 @@ func validateJWT(cfg config.AuthConfig, tokenStr string) (jwt.MapClaims, error) 
 
 func RequiresAdmin(logger logrus.FieldLogger) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		ctx := c.Request.Context()
 		log := logger.WithFields(logrus.Fields{
-			"reqID": c.Request.Context().Value("reqID"),
-			"fn":    "Auth",
+			"reqID":          ctx.Value("reqID"),
+			"loggedInUserID": ctx.Value("userID"),
+			"fn":             "Auth",
 		})
 		log.Debug("called")
-		claims, ok := c.Request.Context().Value("jwtClaims").(jwt.MapClaims)
+		claims, ok := ctx.Value("jwtClaims").(jwt.MapClaims)
 		if !ok {
 			log.Warn("jwtClaims not in context")
 			c.AbortWithStatus(http.StatusForbidden)

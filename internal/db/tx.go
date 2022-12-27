@@ -20,8 +20,9 @@ func NewTXMGR(log logrus.FieldLogger, db *sqlx.DB) *txmgr {
 
 func (m txmgr) Do(ctx context.Context, joinTX *sqlx.Tx, f func(*sqlx.Tx) error) (err error) {
 	log := m.log.WithFields(logrus.Fields{
-		"reqID": ctx.Value("reqID"),
-		"fn":    "Do",
+		"reqID":          ctx.Value("reqID"),
+		"loggedInUserID": ctx.Value("userID"),
+		"fn":             "Do",
 	})
 	var tx *sqlx.Tx
 	if joinTX == nil {
