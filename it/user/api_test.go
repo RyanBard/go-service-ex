@@ -666,6 +666,26 @@ func TestUserAPI(t *testing.T) {
 			assert.Nil(t, err)
 		})
 
+		t.Run("Idempotent", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-idempotent-setup-%s", s.reqID))
+			u, err := s.userClient.Save(ctx, user.User{
+				Name:  "Test-" + uuid.NewString(),
+				Email: "foo+" + uuid.NewString() + "@bar.com",
+				OrgID: s.testOrg.ID,
+			})
+			s.addUserToCleanup(u)
+			assert.Nil(t, err)
+			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-idempotent-1-%s", s.reqID))
+			err = s.userClient.Delete(ctx, user.DeleteUser{ID: u.ID, Version: u.Version})
+			assert.Nil(t, err)
+			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-idempotent-2-%s", s.reqID))
+			err = s.userClient.Delete(ctx, user.DeleteUser{ID: u.ID, Version: u.Version})
+			assert.Nil(t, err)
+			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-idempotent-3-%s", s.reqID))
+			err = s.userClient.Delete(ctx, user.DeleteUser{ID: u.ID, Version: u.Version})
+			assert.Nil(t, err)
+		})
+
 		t.Run("OptimisticLock", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-opt-lock-setup-1-%s", s.reqID))
 			u, err := s.userClient.Save(ctx, user.User{

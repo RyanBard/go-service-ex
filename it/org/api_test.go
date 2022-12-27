@@ -532,6 +532,25 @@ func TestOrgAPI(t *testing.T) {
 			assert.Nil(t, err)
 		})
 
+		t.Run("Idempotent", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-idempotent-setup-%s", s.reqID))
+			o, err := s.orgClient.Save(ctx, org.Org{
+				Name: "Test-" + uuid.NewString(),
+				Desc: "Integration Test",
+			})
+			s.addOrgToCleanup(o)
+			assert.Nil(t, err)
+			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-idempotent-1-%s", s.reqID))
+			err = s.orgClient.Delete(ctx, org.DeleteOrg{ID: o.ID, Version: o.Version})
+			assert.Nil(t, err)
+			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-idempotent-2-%s", s.reqID))
+			err = s.orgClient.Delete(ctx, org.DeleteOrg{ID: o.ID, Version: o.Version})
+			assert.Nil(t, err)
+			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-idempotent-3-%s", s.reqID))
+			err = s.orgClient.Delete(ctx, org.DeleteOrg{ID: o.ID, Version: o.Version})
+			assert.Nil(t, err)
+		})
+
 		t.Run("OptimisticLock", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-opt-lock-setup-1-%s", s.reqID))
 			o, err := s.orgClient.Save(ctx, org.Org{
