@@ -4,6 +4,14 @@ import (
 	"fmt"
 )
 
+type EmailAlreadyInUseErr struct {
+	Email string
+}
+
+func (err EmailAlreadyInUseErr) Error() string {
+	return fmt.Sprintf("Cannot save user, email '%s' is already in use by another user", err.Email)
+}
+
 type CannotAssociateSysOrgErr struct {
 	UserID string
 	OrgID  string

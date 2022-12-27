@@ -4,6 +4,14 @@ import (
 	"fmt"
 )
 
+type NameAlreadyInUseErr struct {
+	Name string
+}
+
+func (err NameAlreadyInUseErr) Error() string {
+	return fmt.Sprintf("Cannot save org, name '%s' is already in use by another org", err.Name)
+}
+
 type CannotModifySysOrgErr struct {
 	ID string
 }

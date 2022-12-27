@@ -19,8 +19,12 @@ func ReqID(logger logrus.FieldLogger) gin.HandlerFunc {
 		if reqID == "" {
 			reqID = "generated-" + uuid.New().String()
 		}
-		log := logger.WithField("reqID", reqID)
-		log.Debug("ReqID called")
+		log := logger.WithFields(logrus.Fields{
+			"SVC":   "Middleware",
+			"reqID": reqID,
+			"fn":    "ReqID",
+		})
+		log.Debug("called")
 		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "reqID", reqID))
 	}
 }
@@ -28,6 +32,7 @@ func ReqID(logger logrus.FieldLogger) gin.HandlerFunc {
 func Auth(logger logrus.FieldLogger, cfg config.AuthConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := logger.WithFields(logrus.Fields{
+			"SVC":   "Middleware",
 			"reqID": c.Request.Context().Value("reqID"),
 			"fn":    "Auth",
 		})
@@ -52,8 +57,11 @@ func Auth(logger logrus.FieldLogger, cfg config.AuthConfig) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		log.WithField("claims", claims).Debug("Token was valid, proceeding")
 		userID := claims["sub"]
+		log.WithFields(logrus.Fields{
+			"claims":         claims,
+			"loggedInUserID": userID,
+		}).Debug("Token was valid, proceeding")
 		ctx := context.WithValue(c.Request.Context(), "userID", userID)
 		ctx = context.WithValue(ctx, "jwtClaims", claims)
 		c.Request = c.Request.WithContext(ctx)
@@ -92,9 +100,10 @@ func RequiresAdmin(logger logrus.FieldLogger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 		log := logger.WithFields(logrus.Fields{
+			"SVC":            "Middleware",
 			"reqID":          ctx.Value("reqID"),
 			"loggedInUserID": ctx.Value("userID"),
-			"fn":             "Auth",
+			"fn":             "RequiresAdmin",
 		})
 		log.Debug("called")
 		claims, ok := ctx.Value("jwtClaims").(jwt.MapClaims)

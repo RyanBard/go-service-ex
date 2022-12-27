@@ -83,6 +83,7 @@ const createQuery = `
 	)
 `
 
+// Note: I'm not allowing the user to change their email
 const updateQuery = `
 	UPDATE users SET
 		name = :name,

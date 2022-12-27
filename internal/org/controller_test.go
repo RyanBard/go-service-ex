@@ -535,6 +535,32 @@ func TestCTRLSave_OptimisticLockError(t *testing.T) {
 	assert.Equal(t, mockErr.Error(), actual["message"])
 }
 
+func TestCTRLSave_NameAlreadyInUseError(t *testing.T) {
+	o := org.Org{
+		ID:   "body-foo-id",
+		Name: "foo-name",
+		Desc: "foo-desc",
+	}
+
+	c, ms := initCTRL()
+	gc, w, err := ginCtxWithBody("/", o)
+	assert.Nil(t, err)
+
+	mockErr := NameAlreadyInUseErr{Name: o.Name}
+	ms.On("Save", mock.Anything, o).Return(org.Org{}, mockErr)
+
+	c.Save(gc)
+	res := w.Result()
+	bytes, err := io.ReadAll(res.Body)
+	assert.Nil(t, err)
+	var actual map[string]string
+	err = json.Unmarshal(bytes, &actual)
+	assert.Nil(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, 409, gc.Writer.Status())
+	assert.Equal(t, mockErr.Error(), actual["message"])
+}
+
 func TestCTRLSave_ServiceError(t *testing.T) {
 	o := org.Org{
 		ID:   "body-foo-id",

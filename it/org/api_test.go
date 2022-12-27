@@ -322,6 +322,19 @@ func TestOrgAPI(t *testing.T) {
 			assert.Equal(t, 400, httpErr.StatusCode)
 		})
 
+		t.Run("DuplicateName", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-dup-name-%s", s.reqID))
+			o, err := s.orgClient.Save(ctx, org.Org{
+				Name: "System Org",
+				Desc: "Integration Test",
+			})
+			s.addOrgToCleanup(o)
+			assert.NotNil(t, err)
+			var httpErr org.HTTPError
+			assert.True(t, errors.As(err, &httpErr))
+			assert.Equal(t, 409, httpErr.StatusCode)
+		})
+
 		t.Run("MissingDescription", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-missing-description-%s", s.reqID))
 			o, err := s.orgClient.Save(ctx, org.Org{
@@ -433,6 +446,25 @@ func TestOrgAPI(t *testing.T) {
 			var httpErr org.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 400, httpErr.StatusCode)
+		})
+
+		t.Run("DuplicateName", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-duplicate-name-setup-%s", s.reqID))
+			name := "Test-" + uuid.NewString()
+			o, err := s.orgClient.Save(ctx, org.Org{
+				Name: name,
+				Desc: "Integration Test",
+			})
+			s.addOrgToCleanup(o)
+			assert.Nil(t, err)
+			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-dup-name-%s", s.reqID))
+			o.Name = "System Org"
+			o2, err := s.orgClient.Save(ctx, o)
+			s.addOrgToCleanup(o2)
+			assert.NotNil(t, err)
+			var httpErr org.HTTPError
+			assert.True(t, errors.As(err, &httpErr))
+			assert.Equal(t, 409, httpErr.StatusCode)
 		})
 
 		t.Run("MissingDescription", func(t *testing.T) {

@@ -122,6 +122,7 @@ func (ctr ctrl) Save(c *gin.Context) {
 		var notFound NotFoundErr
 		var modSysOrg CannotModifySysOrgErr
 		var optLock OptimisticLockErr
+		var dupName NameAlreadyInUseErr
 		if errors.As(err, &notFound) {
 			log.WithError(err).Warn("resource not found")
 			statusCode = http.StatusNotFound
@@ -130,6 +131,9 @@ func (ctr ctrl) Save(c *gin.Context) {
 			statusCode = http.StatusForbidden
 		} else if errors.As(err, &optLock) {
 			log.WithError(err).Warn("optimistic lock error")
+			statusCode = http.StatusConflict
+		} else if errors.As(err, &dupName) {
+			log.WithError(err).Warn("duplicate name error")
 			statusCode = http.StatusConflict
 		} else {
 			log.WithError(err).Error("service call failed")

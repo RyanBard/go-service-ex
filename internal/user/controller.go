@@ -152,6 +152,7 @@ func (ctr ctrl) Save(c *gin.Context) {
 		var assocSysOrg CannotAssociateSysOrgErr
 		var orgNotFound org.NotFoundErr
 		var optLock OptimisticLockErr
+		var dupEmail EmailAlreadyInUseErr
 		if errors.As(err, &notFound) {
 			log.WithError(err).Warn("resource not found")
 			statusCode = http.StatusNotFound
@@ -160,6 +161,9 @@ func (ctr ctrl) Save(c *gin.Context) {
 			statusCode = http.StatusForbidden
 		} else if errors.As(err, &optLock) {
 			log.WithError(err).Warn("optimistic lock error")
+			statusCode = http.StatusConflict
+		} else if errors.As(err, &dupEmail) {
+			log.WithError(err).Warn("duplicate email error")
 			statusCode = http.StatusConflict
 		} else if errors.As(err, &orgNotFound) {
 			log.WithError(err).Warn("org resource not found")

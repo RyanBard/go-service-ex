@@ -628,6 +628,33 @@ func TestCTRLSave_OptimisticLockError(t *testing.T) {
 	assert.Equal(t, mockErr.Error(), actual["message"])
 }
 
+func TestCTRLSave_EmailAlreadyInUseError(t *testing.T) {
+	u := user.User{
+		ID:    "body-foo-id",
+		OrgID: "foo-org-id",
+		Name:  "foo-name",
+		Email: "foo@bar.com",
+	}
+
+	c, ms := initCTRL()
+	gc, w, err := ginCtxWithBody("/", u)
+	assert.Nil(t, err)
+
+	mockErr := EmailAlreadyInUseErr{Email: u.Email}
+	ms.On("Save", mock.Anything, u).Return(user.User{}, mockErr)
+
+	c.Save(gc)
+	res := w.Result()
+	bytes, err := io.ReadAll(res.Body)
+	assert.Nil(t, err)
+	var actual map[string]string
+	err = json.Unmarshal(bytes, &actual)
+	assert.Nil(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, 409, gc.Writer.Status())
+	assert.Equal(t, mockErr.Error(), actual["message"])
+}
+
 func TestCTRLSave_OrgNotFoundError(t *testing.T) {
 	u := user.User{
 		ID:    "body-foo-id",

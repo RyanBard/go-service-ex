@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/RyanBard/gin-ex/pkg/user"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 )
 
@@ -83,13 +84,17 @@ func (d dao) Create(ctx context.Context, tx *sqlx.Tx, u user.User) (err error) {
 	log.Debug("called")
 	r, err := tx.NamedExecContext(ctx, createQuery, &u)
 	if err != nil {
-		log.WithError(err).Error("failed to execute query")
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) {
+			if pqErr.Constraint == "users_email_uk" {
+				return EmailAlreadyInUseErr{Email: u.Email}
+			}
+		}
 		return err
 	}
 	log.Debug("query ran")
 	numRows, err := r.RowsAffected()
 	if err != nil {
-		log.WithError(err).Error("failed to get number of rows affected")
 		return err
 	}
 	if numRows != 1 {
@@ -109,13 +114,17 @@ func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input user.User) (u user.U
 	log.Debug("called")
 	r, err := tx.NamedExecContext(ctx, updateQuery, &input)
 	if err != nil {
-		log.WithError(err).Error("failed to execute query")
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) {
+			if pqErr.Constraint == "users_email_uk" {
+				return u, EmailAlreadyInUseErr{Email: input.Email}
+			}
+		}
 		return u, err
 	}
 	log.Debug("query ran")
 	numRows, err := r.RowsAffected()
 	if err != nil {
-		log.WithError(err).Error("failed to get number of rows affected")
 		return u, err
 	}
 	if numRows == 0 {
@@ -139,13 +148,11 @@ func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, u user.DeleteUser) (err er
 	log.Debug("called")
 	r, err := tx.NamedExecContext(ctx, deleteQuery, &u)
 	if err != nil {
-		log.WithError(err).Error("failed to execute query")
 		return err
 	}
 	log.Debug("query ran")
 	numRows, err := r.RowsAffected()
 	if err != nil {
-		log.WithError(err).Error("failed to get number of rows affected")
 		return err
 	}
 	if numRows == 0 {

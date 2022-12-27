@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/RyanBard/gin-ex/pkg/user"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
@@ -113,15 +114,15 @@ func TestDAOGetByID_NotFoundErr(t *testing.T) {
 func TestDAOGetByID_OtherErr(t *testing.T) {
 	d, _, md := initDAO()
 
-	mockErr := errors.New("unit-test mock error")
+	mockErr := pq.Error{Message: "unit-test mock error"}
 	md.ExpectQuery(regexp.QuoteMeta(getByIDQuery)).
 		WithArgs(id).
-		WillReturnError(mockErr)
+		WillReturnError(&mockErr)
 
 	_, err := d.GetByID(ctx, id)
 
 	assert.Nil(t, md.ExpectationsWereMet())
-	assert.Equal(t, mockErr, err)
+	assert.Equal(t, &mockErr, err)
 }
 
 func TestDAOGetAll(t *testing.T) {
@@ -151,14 +152,14 @@ func TestDAOGetAll(t *testing.T) {
 func TestDAOGetAll_Error(t *testing.T) {
 	d, _, md := initDAO()
 
-	mockErr := errors.New("unit-test mock error")
+	mockErr := pq.Error{Message: "unit-test mock error"}
 	md.ExpectQuery(regexp.QuoteMeta(getAllQuery)).
-		WillReturnError(mockErr)
+		WillReturnError(&mockErr)
 
 	_, err := d.GetAll(ctx)
 
 	assert.Nil(t, md.ExpectationsWereMet())
-	assert.Equal(t, mockErr, err)
+	assert.Equal(t, &mockErr, err)
 }
 
 func TestDAOGetAllByOrgID(t *testing.T) {
@@ -189,15 +190,15 @@ func TestDAOGetAllByOrgID(t *testing.T) {
 func TestDAOGetAllByOrgID_Error(t *testing.T) {
 	d, _, md := initDAO()
 
-	mockErr := errors.New("unit-test mock error")
+	mockErr := pq.Error{Message: "unit-test mock error"}
 	md.ExpectQuery(regexp.QuoteMeta(getAllByOrgIDQuery)).
 		WithArgs(orgID).
-		WillReturnError(mockErr)
+		WillReturnError(&mockErr)
 
 	_, err := d.GetAllByOrgID(ctx, orgID)
 
 	assert.Nil(t, md.ExpectationsWereMet())
-	assert.Equal(t, mockErr, err)
+	assert.Equal(t, &mockErr, err)
 }
 
 func TestDAOCreate(t *testing.T) {
@@ -229,7 +230,72 @@ func TestDAOCreate(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestDAOCreate_Err(t *testing.T) {
+func TestDAOCreate_EmailALreadyInUseErr(t *testing.T) {
+	d, db, md := initDAO()
+
+	u := user.User{
+		ID:        id,
+		OrgID:     orgID,
+		Name:      name,
+		Email:     email,
+		IsAdmin:   isAdmin,
+		CreatedAt: createdAt,
+		CreatedBy: createdBy,
+		UpdatedAt: updatedAt,
+		UpdatedBy: updatedBy,
+		Version:   version,
+	}
+
+	mockErr := pq.Error{Message: "unit-test mock error", Constraint: "users_email_uk"}
+	md.ExpectBegin()
+	md.ExpectExec("INSERT INTO users").
+		WillReturnError(&mockErr)
+
+	tx, err := db.Beginx()
+	assert.Nil(t, err)
+
+	err = d.Create(ctx, tx, u)
+
+	assert.Nil(t, md.ExpectationsWereMet())
+	assert.NotNil(t, err)
+	var dupEmailErr EmailAlreadyInUseErr
+	assert.True(t, errors.As(err, &dupEmailErr))
+	assert.Contains(t, dupEmailErr.Error(), "email")
+	assert.Contains(t, dupEmailErr.Error(), "in use")
+	assert.Contains(t, dupEmailErr.Error(), email)
+}
+
+func TestDAOCreate_OtherPQErr(t *testing.T) {
+	d, db, md := initDAO()
+
+	u := user.User{
+		ID:        id,
+		OrgID:     orgID,
+		Name:      name,
+		Email:     email,
+		IsAdmin:   isAdmin,
+		CreatedAt: createdAt,
+		CreatedBy: createdBy,
+		UpdatedAt: updatedAt,
+		UpdatedBy: updatedBy,
+		Version:   version,
+	}
+
+	mockErr := pq.Error{Message: "unit-test mock error"}
+	md.ExpectBegin()
+	md.ExpectExec("INSERT INTO users").
+		WillReturnError(&mockErr)
+
+	tx, err := db.Beginx()
+	assert.Nil(t, err)
+
+	err = d.Create(ctx, tx, u)
+
+	assert.Nil(t, md.ExpectationsWereMet())
+	assert.Equal(t, &mockErr, err)
+}
+
+func TestDAOCreate_OtherNonPQErr(t *testing.T) {
 	d, db, md := initDAO()
 
 	u := user.User{
@@ -360,7 +426,72 @@ func TestDAOUpdate_OptimisticLockErr(t *testing.T) {
 	assert.Contains(t, err.Error(), fmt.Sprintf("%d", version))
 }
 
-func TestDAOUpdate_OtherErr(t *testing.T) {
+func TestDAOUpdate_EmailAlreadyInUseErr(t *testing.T) {
+	d, db, md := initDAO()
+
+	u := user.User{
+		ID:        id,
+		OrgID:     orgID,
+		Name:      name,
+		Email:     email,
+		IsAdmin:   isAdmin,
+		CreatedAt: createdAt,
+		CreatedBy: createdBy,
+		UpdatedAt: updatedAt,
+		UpdatedBy: updatedBy,
+		Version:   version,
+	}
+
+	mockErr := pq.Error{Message: "unit-test mock error", Constraint: "users_email_uk"}
+	md.ExpectBegin()
+	md.ExpectExec("UPDATE users").
+		WillReturnError(&mockErr)
+
+	tx, err := db.Beginx()
+	assert.Nil(t, err)
+
+	_, err = d.Update(ctx, tx, u)
+
+	assert.Nil(t, md.ExpectationsWereMet())
+	assert.NotNil(t, err)
+	var dupEmailErr EmailAlreadyInUseErr
+	assert.True(t, errors.As(err, &dupEmailErr))
+	assert.Contains(t, dupEmailErr.Error(), "email")
+	assert.Contains(t, dupEmailErr.Error(), "in use")
+	assert.Contains(t, dupEmailErr.Error(), email)
+}
+
+func TestDAOUpdate_OtherPQErr(t *testing.T) {
+	d, db, md := initDAO()
+
+	u := user.User{
+		ID:        id,
+		OrgID:     orgID,
+		Name:      name,
+		Email:     email,
+		IsAdmin:   isAdmin,
+		CreatedAt: createdAt,
+		CreatedBy: createdBy,
+		UpdatedAt: updatedAt,
+		UpdatedBy: updatedBy,
+		Version:   version,
+	}
+
+	mockErr := pq.Error{Message: "unit-test mock error"}
+	md.ExpectBegin()
+	md.ExpectExec("UPDATE users").
+		WillReturnError(&mockErr)
+
+	tx, err := db.Beginx()
+	assert.Nil(t, err)
+
+	_, err = d.Update(ctx, tx, u)
+
+	assert.Nil(t, md.ExpectationsWereMet())
+	assert.Equal(t, &mockErr, err)
+}
+
+func TestDAOUpdate_OtherNonPQErr(t *testing.T) {
 	d, db, md := initDAO()
 
 	u := user.User{
@@ -473,10 +604,10 @@ func TestDAODelete_OtherErr(t *testing.T) {
 		Version: version,
 	}
 
-	mockErr := errors.New("unit-test mock error")
+	mockErr := pq.Error{Message: "unit-test mock error"}
 	md.ExpectBegin()
 	md.ExpectExec("DELETE FROM users").
-		WillReturnError(mockErr)
+		WillReturnError(&mockErr)
 
 	tx, err := db.Beginx()
 	assert.Nil(t, err)
@@ -484,7 +615,7 @@ func TestDAODelete_OtherErr(t *testing.T) {
 	err = d.Delete(ctx, tx, u)
 
 	assert.Nil(t, md.ExpectationsWereMet())
-	assert.Equal(t, mockErr, err)
+	assert.Equal(t, &mockErr, err)
 }
 
 func TestDAODelete_TooManyRowsAffected(t *testing.T) {

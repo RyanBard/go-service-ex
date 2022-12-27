@@ -393,6 +393,20 @@ func TestUserAPI(t *testing.T) {
 			assert.Equal(t, 400, httpErr.StatusCode)
 		})
 
+		t.Run("DuplicateEmail", func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-dup-email-%s", s.reqID))
+			u, err := s.userClient.Save(ctx, user.User{
+				Name:  "Test-" + uuid.NewString(),
+				Email: "john.ryan.bard@gmail.com",
+				OrgID: s.testOrg.ID,
+			})
+			s.addUserToCleanup(u)
+			assert.NotNil(t, err)
+			var httpErr user.HTTPError
+			assert.True(t, errors.As(err, &httpErr))
+			assert.Equal(t, 409, httpErr.StatusCode)
+		})
+
 		t.Run("SysUser", func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("create-sys-user-%s", s.reqID))
 			u, err := s.userClient.Save(ctx, user.User{
@@ -529,7 +543,7 @@ func TestUserAPI(t *testing.T) {
 		})
 
 		t.Run("MissingEmail", func(t *testing.T) {
-			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-missing-description-setup-%s", s.reqID))
+			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-missing-email-setup-%s", s.reqID))
 			u, err := s.userClient.Save(ctx, user.User{
 				Name:  "Test-" + uuid.NewString(),
 				Email: "foo+" + uuid.NewString() + "@bar.com",
@@ -537,7 +551,7 @@ func TestUserAPI(t *testing.T) {
 			})
 			s.addUserToCleanup(u)
 			assert.Nil(t, err)
-			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-missing-description-%s", s.reqID))
+			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("update-missing-email-%s", s.reqID))
 			u.Email = ""
 			u2, err := s.userClient.Save(ctx, u)
 			s.addUserToCleanup(u2)
