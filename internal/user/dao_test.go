@@ -68,7 +68,8 @@ func initDAO() (d *dao, dbx *sqlx.DB, md sqlmock.Sqlmock) {
 		log.Fatal("failed to mock db")
 	}
 	dbx = sqlx.NewDb(db, "sqlmock")
-	d = NewDAO(log, dbx)
+	queryTimeout := 30 * time.Second
+	d = NewDAO(log, queryTimeout, dbx)
 	return d, dbx, md
 }
 

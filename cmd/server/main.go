@@ -47,11 +47,11 @@ func main() {
 
 	validate := validator.New()
 
-	orgDAO := org.NewDAO(log, dbx)
+	orgDAO := org.NewDAO(log, cfg.DB.QueryTimeout, dbx)
 	orgService := org.NewService(log, orgDAO, txMGR, timer, idGenerator)
 	orgCtrl := org.NewController(log, validate, orgService)
 
-	userDAO := user.NewDAO(log, dbx)
+	userDAO := user.NewDAO(log, cfg.DB.QueryTimeout, dbx)
 	userService := user.NewService(log, orgService, userDAO, txMGR, timer, idGenerator)
 	userCtrl := user.NewController(log, validate, userService)
 

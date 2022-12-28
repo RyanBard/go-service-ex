@@ -9,21 +9,26 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
+	"time"
 )
 
 type dao struct {
-	log logrus.FieldLogger
-	db  *sqlx.DB
+	log     logrus.FieldLogger
+	timeout time.Duration
+	db      *sqlx.DB
 }
 
-func NewDAO(log logrus.FieldLogger, db *sqlx.DB) *dao {
+func NewDAO(log logrus.FieldLogger, timeout time.Duration, db *sqlx.DB) *dao {
 	return &dao{
-		log: log.WithField("SVC", "OrgDAO"),
-		db:  db,
+		log:     log.WithField("SVC", "OrgDAO"),
+		timeout: timeout,
+		db:      db,
 	}
 }
 
 func (d dao) GetByID(ctx context.Context, id string) (o org.Org, err error) {
+	ctx, cancel := context.WithTimeout(ctx, d.timeout)
+	defer cancel()
 	log := d.log.WithFields(logrus.Fields{
 		"reqID":          ctx.Value("reqID"),
 		"loggedInUserID": ctx.Value("userID"),
@@ -43,6 +48,8 @@ func (d dao) GetByID(ctx context.Context, id string) (o org.Org, err error) {
 }
 
 func (d dao) GetAll(ctx context.Context) (orgs []org.Org, err error) {
+	ctx, cancel := context.WithTimeout(ctx, d.timeout)
+	defer cancel()
 	log := d.log.WithFields(logrus.Fields{
 		"reqID":          ctx.Value("reqID"),
 		"loggedInUserID": ctx.Value("userID"),
@@ -58,6 +65,8 @@ func (d dao) GetAll(ctx context.Context) (orgs []org.Org, err error) {
 }
 
 func (d dao) SearchByName(ctx context.Context, name string) (orgs []org.Org, err error) {
+	ctx, cancel := context.WithTimeout(ctx, d.timeout)
+	defer cancel()
 	log := d.log.WithFields(logrus.Fields{
 		"reqID":          ctx.Value("reqID"),
 		"loggedInUserID": ctx.Value("userID"),
@@ -75,6 +84,8 @@ func (d dao) SearchByName(ctx context.Context, name string) (orgs []org.Org, err
 }
 
 func (d dao) Create(ctx context.Context, tx *sqlx.Tx, o org.Org) (err error) {
+	ctx, cancel := context.WithTimeout(ctx, d.timeout)
+	defer cancel()
 	log := d.log.WithFields(logrus.Fields{
 		"reqID":          ctx.Value("reqID"),
 		"loggedInUserID": ctx.Value("userID"),
@@ -105,6 +116,8 @@ func (d dao) Create(ctx context.Context, tx *sqlx.Tx, o org.Org) (err error) {
 }
 
 func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input org.Org) (o org.Org, err error) {
+	ctx, cancel := context.WithTimeout(ctx, d.timeout)
+	defer cancel()
 	log := d.log.WithFields(logrus.Fields{
 		"reqID":          ctx.Value("reqID"),
 		"loggedInUserID": ctx.Value("userID"),
@@ -139,6 +152,8 @@ func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input org.Org) (o org.Org,
 }
 
 func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, o org.DeleteOrg) (err error) {
+	ctx, cancel := context.WithTimeout(ctx, d.timeout)
+	defer cancel()
 	log := d.log.WithFields(logrus.Fields{
 		"reqID":          ctx.Value("reqID"),
 		"loggedInUserID": ctx.Value("userID"),
