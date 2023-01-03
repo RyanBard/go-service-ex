@@ -3,7 +3,7 @@ package mdlw
 import (
 	"context"
 	"fmt"
-	"github.com/RyanBard/gin-ex/internal/config"
+	"github.com/RyanBard/go-service-ex/internal/config"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/sirupsen/logrus"

@@ -3,7 +3,7 @@ package apiclient
 import (
 	"context"
 	"fmt"
-	"github.com/RyanBard/gin-ex/internal/httpx"
+	"github.com/RyanBard/go-service-ex/internal/httpx"
 )
 
 type Client struct {

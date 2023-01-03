@@ -3,7 +3,7 @@ package user
 import (
 	"context"
 	"fmt"
-	"github.com/RyanBard/gin-ex/internal/apiclient"
+	"github.com/RyanBard/go-service-ex/internal/apiclient"
 )
 
 type Config struct {

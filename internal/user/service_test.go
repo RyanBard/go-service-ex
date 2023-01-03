@@ -3,8 +3,8 @@ package user
 import (
 	"context"
 	"errors"
-	"github.com/RyanBard/gin-ex/pkg/org"
-	"github.com/RyanBard/gin-ex/pkg/user"
+	"github.com/RyanBard/go-service-ex/pkg/org"
+	"github.com/RyanBard/go-service-ex/pkg/user"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
