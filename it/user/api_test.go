@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/RyanBard/gin-ex/internal/apiclient"
+	"github.com/RyanBard/gin-ex/internal/httpx"
 	"github.com/RyanBard/gin-ex/it/config"
 	"github.com/RyanBard/gin-ex/pkg/org"
 	"github.com/RyanBard/gin-ex/pkg/user"
@@ -75,37 +77,45 @@ func setupSuite(tb testing.TB) (*info, func(tb testing.TB)) {
 		org.Config{
 			BaseURL: cfg.BaseURL,
 		},
-		http.Client{},
-		func(isRetry bool) (string, error) {
-			return ui.getAdminJWT(), nil
-		},
+		apiclient.NewClient(
+			httpx.NewClient(http.Client{}),
+			func(isRetry bool) (string, error) {
+				return ui.getAdminJWT(), nil
+			},
+		),
 	)
 	ui.userClient = user.NewClient(
 		user.Config{
 			BaseURL: cfg.BaseURL,
 		},
-		http.Client{},
-		func(isRetry bool) (string, error) {
-			return ui.getAdminJWT(), nil
-		},
+		apiclient.NewClient(
+			httpx.NewClient(http.Client{}),
+			func(isRetry bool) (string, error) {
+				return ui.getAdminJWT(), nil
+			},
+		),
 	)
 	ui.invJWTUserClient = user.NewClient(
 		user.Config{
 			BaseURL: cfg.BaseURL,
 		},
-		http.Client{},
-		func(isRetry bool) (string, error) {
-			return "x.y.z", nil
-		},
+		apiclient.NewClient(
+			httpx.NewClient(http.Client{}),
+			func(isRetry bool) (string, error) {
+				return "x.y.z", nil
+			},
+		),
 	)
 	ui.nonAdminUserClient = user.NewClient(
 		user.Config{
 			BaseURL: cfg.BaseURL,
 		},
-		http.Client{},
-		func(isRetry bool) (string, error) {
-			return ui.getNonAdminJWT(), nil
-		},
+		apiclient.NewClient(
+			httpx.NewClient(http.Client{}),
+			func(isRetry bool) (string, error) {
+				return ui.getNonAdminJWT(), nil
+			},
+		),
 	)
 
 	ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("user-suite-setup-%s", reqID))
@@ -195,7 +205,7 @@ func TestUserAPI(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getByID-not-found-%s", s.reqID))
 			_, err := s.userClient.GetByID(ctx, "will-not-find")
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 404, httpErr.StatusCode)
 		})
@@ -218,7 +228,7 @@ func TestUserAPI(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getByID-invalid-jwt-%s", s.reqID))
 			_, err := s.invJWTUserClient.GetByID(ctx, sysUserID)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 401, httpErr.StatusCode)
 		})
@@ -275,7 +285,7 @@ func TestUserAPI(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getAll-invalid-jwt-%s", s.reqID))
 			_, err := s.invJWTUserClient.GetAll(ctx)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 401, httpErr.StatusCode)
 		})
@@ -346,7 +356,7 @@ func TestUserAPI(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("getAllByOrgID-invalid-jwt-%s", s.reqID))
 			_, err := s.invJWTUserClient.GetAllByOrgID(ctx, sysOrgID)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 401, httpErr.StatusCode)
 		})
@@ -375,7 +385,7 @@ func TestUserAPI(t *testing.T) {
 			})
 			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 400, httpErr.StatusCode)
 		})
@@ -388,7 +398,7 @@ func TestUserAPI(t *testing.T) {
 			})
 			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 400, httpErr.StatusCode)
 		})
@@ -402,7 +412,7 @@ func TestUserAPI(t *testing.T) {
 			})
 			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 409, httpErr.StatusCode)
 		})
@@ -430,7 +440,7 @@ func TestUserAPI(t *testing.T) {
 			})
 			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 400, httpErr.StatusCode)
 		})
@@ -444,7 +454,7 @@ func TestUserAPI(t *testing.T) {
 			})
 			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 403, httpErr.StatusCode)
 		})
@@ -458,7 +468,7 @@ func TestUserAPI(t *testing.T) {
 			})
 			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 403, httpErr.StatusCode)
 		})
@@ -472,7 +482,7 @@ func TestUserAPI(t *testing.T) {
 			})
 			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 401, httpErr.StatusCode)
 		})
@@ -518,7 +528,7 @@ func TestUserAPI(t *testing.T) {
 			u3, err := s.userClient.Save(ctx, u)
 			s.addUserToCleanup(u3)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 409, httpErr.StatusCode)
 		})
@@ -537,7 +547,7 @@ func TestUserAPI(t *testing.T) {
 			u2, err := s.userClient.Save(ctx, u)
 			s.addUserToCleanup(u2)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 400, httpErr.StatusCode)
 		})
@@ -556,7 +566,7 @@ func TestUserAPI(t *testing.T) {
 			u2, err := s.userClient.Save(ctx, u)
 			s.addUserToCleanup(u2)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 400, httpErr.StatusCode)
 		})
@@ -572,7 +582,7 @@ func TestUserAPI(t *testing.T) {
 			})
 			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 404, httpErr.StatusCode)
 		})
@@ -588,7 +598,7 @@ func TestUserAPI(t *testing.T) {
 			})
 			s.addUserToCleanup(u)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 403, httpErr.StatusCode)
 		})
@@ -606,7 +616,7 @@ func TestUserAPI(t *testing.T) {
 			u2, err := s.userClient.Save(ctx, u)
 			s.addUserToCleanup(u2)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 400, httpErr.StatusCode)
 		})
@@ -624,7 +634,7 @@ func TestUserAPI(t *testing.T) {
 			u2, err := s.userClient.Save(ctx, u)
 			s.addUserToCleanup(u2)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 403, httpErr.StatusCode)
 		})
@@ -643,7 +653,7 @@ func TestUserAPI(t *testing.T) {
 			u2, err := s.nonAdminUserClient.Save(ctx, u)
 			s.addUserToCleanup(u2)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 403, httpErr.StatusCode)
 		})
@@ -662,7 +672,7 @@ func TestUserAPI(t *testing.T) {
 			u2, err := s.invJWTUserClient.Save(ctx, u)
 			s.addUserToCleanup(u2)
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 401, httpErr.StatusCode)
 		})
@@ -720,7 +730,7 @@ func TestUserAPI(t *testing.T) {
 			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-opt-lock-%s", s.reqID))
 			err = s.userClient.Delete(ctx, user.DeleteUser{ID: u.ID, Version: u.Version})
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 409, httpErr.StatusCode)
 		})
@@ -737,7 +747,7 @@ func TestUserAPI(t *testing.T) {
 			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-missing-version-%s", s.reqID))
 			err = s.userClient.Delete(ctx, user.DeleteUser{ID: u.ID})
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 400, httpErr.StatusCode)
 		})
@@ -752,7 +762,7 @@ func TestUserAPI(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-sys-org-%s", s.reqID))
 			err := s.userClient.Delete(ctx, user.DeleteUser{ID: sysUserID, Version: 1})
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 403, httpErr.StatusCode)
 		})
@@ -769,7 +779,7 @@ func TestUserAPI(t *testing.T) {
 			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-non-admin-jwt-%s", s.reqID))
 			err = s.nonAdminUserClient.Delete(ctx, user.DeleteUser{ID: u.ID, Version: u.Version})
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 403, httpErr.StatusCode)
 		})
@@ -786,7 +796,7 @@ func TestUserAPI(t *testing.T) {
 			ctx = context.WithValue(context.Background(), "reqID", fmt.Sprintf("delete-invalid-jwt-%s", s.reqID))
 			err = s.invJWTUserClient.Delete(ctx, user.DeleteUser{ID: u.ID, Version: u.Version})
 			assert.NotNil(t, err)
-			var httpErr user.HTTPError
+			var httpErr httpx.HTTPError
 			assert.True(t, errors.As(err, &httpErr))
 			assert.Equal(t, 401, httpErr.StatusCode)
 		})
