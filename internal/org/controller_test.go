@@ -381,7 +381,7 @@ func TestCTRLSave_UnmarshalError(t *testing.T) {
 	assert.Nil(t, err)
 	defer res.Body.Close()
 	assert.Equal(t, 400, gc.Writer.Status())
-	assert.Equal(t, "unexpected end of JSON input", actual["message"])
+	assert.Equal(t, "unexpected EOF", actual["message"])
 }
 
 func TestCTRLSave_ValidationError_MissingName(t *testing.T) {
@@ -657,7 +657,7 @@ func TestCTRLDelete_UnmarshalError(t *testing.T) {
 	assert.Nil(t, err)
 	defer res.Body.Close()
 	assert.Equal(t, 400, gc.Writer.Status())
-	assert.Equal(t, "unexpected end of JSON input", actual["message"])
+	assert.Equal(t, "unexpected EOF", actual["message"])
 }
 
 func TestCTRLDelete_ValidationError_MissingVersion(t *testing.T) {

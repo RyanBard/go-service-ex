@@ -2,14 +2,12 @@ package user
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"github.com/RyanBard/go-service-ex/internal/org"
 	"github.com/RyanBard/go-service-ex/pkg/user"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
-	"io"
 	"net/http"
 )
 
@@ -119,15 +117,8 @@ func (ctr ctrl) Save(c *gin.Context) {
 		"pathID":         pathID,
 	})
 	log.Debug("called")
-	bytes, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		log.WithError(err).Error("read of req body failed")
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
-	}
-	defer c.Request.Body.Close()
 	var u user.User
-	if err = json.Unmarshal(bytes, &u); err != nil {
+	if err := c.ShouldBindJSON(&u); err != nil {
 		log.WithError(err).Warn("unmarshalling failed")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -135,7 +126,7 @@ func (ctr ctrl) Save(c *gin.Context) {
 	if pathID != "" {
 		u.ID = pathID
 	}
-	if err = ctr.validate.Struct(u); err != nil {
+	if err := ctr.validate.Struct(u); err != nil {
 		log.WithError(err).Warn("invalid user body")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -144,7 +135,7 @@ func (ctr ctrl) Save(c *gin.Context) {
 		"user": u,
 	})
 	log.Debug("body processed, about to call service")
-	u, err = ctr.service.Save(ctx, u)
+	u, err := ctr.service.Save(ctx, u)
 	if err != nil {
 		var statusCode int
 		var notFound NotFoundErr
@@ -193,15 +184,8 @@ func (ctr ctrl) Delete(c *gin.Context) {
 		"pathID":         pathID,
 	})
 	log.Debug("called")
-	bytes, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		log.WithError(err).Error("read of req body failed")
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
-	}
-	defer c.Request.Body.Close()
 	var u user.DeleteUser
-	if err = json.Unmarshal(bytes, &u); err != nil {
+	if err := c.ShouldBindJSON(&u); err != nil {
 		log.WithError(err).Warn("unmarshalling failed")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -209,7 +193,7 @@ func (ctr ctrl) Delete(c *gin.Context) {
 	if pathID != "" {
 		u.ID = pathID
 	}
-	if err = ctr.validate.Struct(u); err != nil {
+	if err := ctr.validate.Struct(u); err != nil {
 		log.WithError(err).Warn("invalid user body")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return

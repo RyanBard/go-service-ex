@@ -2,13 +2,11 @@ package org
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"github.com/RyanBard/go-service-ex/pkg/org"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
-	"io"
 	"net/http"
 )
 
@@ -91,15 +89,8 @@ func (ctr ctrl) Save(c *gin.Context) {
 		"pathID":         pathID,
 	})
 	log.Debug("called")
-	bytes, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		log.WithError(err).Error("read of req body failed")
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
-	}
-	defer c.Request.Body.Close()
 	var o org.Org
-	if err = json.Unmarshal(bytes, &o); err != nil {
+	if err := c.ShouldBindJSON(&o); err != nil {
 		log.WithError(err).Warn("unmarshalling failed")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -107,7 +98,7 @@ func (ctr ctrl) Save(c *gin.Context) {
 	if pathID != "" {
 		o.ID = pathID
 	}
-	if err = ctr.validate.Struct(o); err != nil {
+	if err := ctr.validate.Struct(o); err != nil {
 		log.WithError(err).Warn("invalid org body")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -116,7 +107,7 @@ func (ctr ctrl) Save(c *gin.Context) {
 		"org": o,
 	})
 	log.Debug("body processed, about to call service")
-	o, err = ctr.service.Save(ctx, o)
+	o, err := ctr.service.Save(ctx, o)
 	if err != nil {
 		var statusCode int
 		var notFound NotFoundErr
@@ -156,15 +147,8 @@ func (ctr ctrl) Delete(c *gin.Context) {
 		"pathID":         pathID,
 	})
 	log.Debug("called")
-	bytes, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		log.WithError(err).Error("Read of req body failed")
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
-	}
-	defer c.Request.Body.Close()
 	var o org.DeleteOrg
-	if err = json.Unmarshal(bytes, &o); err != nil {
+	if err := c.ShouldBindJSON(&o); err != nil {
 		log.WithError(err).Warn("unmarshalling failed")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -172,7 +156,7 @@ func (ctr ctrl) Delete(c *gin.Context) {
 	if pathID != "" {
 		o.ID = pathID
 	}
-	if err = ctr.validate.Struct(o); err != nil {
+	if err := ctr.validate.Struct(o); err != nil {
 		log.WithError(err).Warn("invalid org body")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
