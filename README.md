@@ -39,3 +39,4 @@ make integration-test
 * add a tx example (setup user and org in 1 tx)
 * add prometheus metrics
 * extract common things into their own repo (tx manager, httpx client, etc.)
+* branch coverage: https://github.com/junhwi/gobco/
