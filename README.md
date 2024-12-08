@@ -8,7 +8,7 @@ A microservice written in Go to serve as an example of unit tests, integration t
 * Configure direnv to load .env files (ex. `mkdir ~/.config/direnv && echo -e '[global]\nload_dotenv = true' > ~/.config/direnv/direnv.toml`)
 * Copy the .env.example file to .env and load it with `direnv allow`
 * Install [postgres](https://www.postgresql.org/) (ex. for Ubuntu: `sudo apt install postgresql`)
-* Install [GVM](https://github.com/moovweb/gvm) and use go 1.17+ (ex. `gvm use go1.23`)
+* Install [GVM](https://github.com/moovweb/gvm) and use go 1.21+ (ex. `gvm install go1.23 && gvm use go1.23`)
 
 ## DB Setup
 

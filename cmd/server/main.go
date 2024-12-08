@@ -28,6 +28,9 @@ func main() {
 		log.WithError(err).Fatal("invalid log level")
 	}
 	log.SetLevel(logLvl)
+	if cfg.Mode != "local" {
+		log.SetFormatter(&logrus.JSONFormatter{DisableHTMLEscape: true})
+	}
 
 	timer := timer.New()
 	idGenerator := idgen.New()

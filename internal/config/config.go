@@ -7,6 +7,7 @@ import (
 )
 
 type Config struct {
+	Mode       string `envconfig:"MODE" default:"local"`
 	Port       int    `envconfig:"PORT" default:"4000"`
 	LogLevel   string `envconfig:"LOG_LEVEL" default:"debug"`
 	DB         DBConfig
