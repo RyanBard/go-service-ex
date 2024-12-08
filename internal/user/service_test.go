@@ -3,14 +3,15 @@ package user
 import (
 	"context"
 	"errors"
+	"testing"
+	"time"
+
 	"github.com/RyanBard/go-service-ex/pkg/org"
 	"github.com/RyanBard/go-service-ex/pkg/user"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"testing"
-	"time"
 )
 
 type mockOrgSVC struct {

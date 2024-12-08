@@ -2,6 +2,7 @@ package tx
 
 import (
 	"context"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 )
@@ -13,7 +14,7 @@ type txmgr struct {
 
 func NewTXMGR(log logrus.FieldLogger, db *sqlx.DB) *txmgr {
 	return &txmgr{
-		log: log.WithField("SVC", "TXManager"),
+		log: log.WithField("svc", "TXManager"),
 		db:  db,
 	}
 }

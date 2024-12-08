@@ -3,14 +3,15 @@ package org
 import (
 	"context"
 	"errors"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/RyanBard/go-service-ex/pkg/org"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"strings"
-	"testing"
-	"time"
 )
 
 type mockDAO struct {

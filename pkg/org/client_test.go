@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/RyanBard/go-service-ex/internal/apiclient"
-	"github.com/RyanBard/go-service-ex/internal/httpx"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/RyanBard/go-service-ex/internal/apiclient"
+	"github.com/RyanBard/go-service-ex/internal/httpx"
+	"github.com/stretchr/testify/assert"
 )
 
 func initClient(getToken func(isRetry bool) (string, error), f func(w http.ResponseWriter, r *http.Request)) (*orgClient, *httptest.Server) {

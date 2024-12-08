@@ -4,19 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/RyanBard/go-service-ex/internal/org"
-	"github.com/RyanBard/go-service-ex/pkg/user"
-	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/RyanBard/go-service-ex/internal/org"
+	"github.com/RyanBard/go-service-ex/pkg/user"
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 type mockSVC struct {
@@ -35,9 +35,8 @@ func (errReader) Read(p []byte) (int, error) {
 func initCTRL() (c *ctrl, ms *mockSVC) {
 	log := logrus.StandardLogger()
 	log.SetLevel(logrus.PanicLevel)
-	v := validator.New()
 	ms = new(mockSVC)
-	c = NewController(log, v, ms)
+	c = NewController(log, ms)
 	return c, ms
 }
 

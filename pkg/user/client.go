@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"fmt"
+
 	"github.com/RyanBard/go-service-ex/internal/apiclient"
 )
 

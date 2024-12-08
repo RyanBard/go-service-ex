@@ -5,11 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/RyanBard/go-service-ex/pkg/user"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 type dao struct {
@@ -20,7 +21,7 @@ type dao struct {
 
 func NewDAO(log logrus.FieldLogger, timeout time.Duration, db *sqlx.DB) *dao {
 	return &dao{
-		log:     log.WithField("SVC", "UserDAO"),
+		log:     log.WithField("svc", "UserDAO"),
 		timeout: timeout,
 		db:      db,
 	}

@@ -3,12 +3,12 @@ package user
 import (
 	"context"
 	"errors"
+	"net/http"
+
 	"github.com/RyanBard/go-service-ex/internal/org"
 	"github.com/RyanBard/go-service-ex/pkg/user"
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
-	"net/http"
 )
 
 type UserService interface {
@@ -20,16 +20,14 @@ type UserService interface {
 }
 
 type ctrl struct {
-	log      logrus.FieldLogger
-	validate *validator.Validate
-	service  UserService
+	log     logrus.FieldLogger
+	service UserService
 }
 
-func NewController(log logrus.FieldLogger, validate *validator.Validate, service UserService) *ctrl {
+func NewController(log logrus.FieldLogger, service UserService) *ctrl {
 	return &ctrl{
-		log:      log.WithField("SVC", "UserCTL"),
-		validate: validate,
-		service:  service,
+		log:     log.WithField("svc", "UserCTL"),
+		service: service,
 	}
 }
 
@@ -119,17 +117,12 @@ func (ctr ctrl) Save(c *gin.Context) {
 	log.Debug("called")
 	var u user.User
 	if err := c.ShouldBindJSON(&u); err != nil {
-		log.WithError(err).Warn("unmarshalling failed")
+		log.WithError(err).Warn("invalid request")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 	if pathID != "" {
 		u.ID = pathID
-	}
-	if err := ctr.validate.Struct(u); err != nil {
-		log.WithError(err).Warn("invalid user body")
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
 	}
 	log = log.WithFields(logrus.Fields{
 		"user": u,
@@ -186,17 +179,12 @@ func (ctr ctrl) Delete(c *gin.Context) {
 	log.Debug("called")
 	var u user.DeleteUser
 	if err := c.ShouldBindJSON(&u); err != nil {
-		log.WithError(err).Warn("unmarshalling failed")
+		log.WithError(err).Warn("invalid request")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 	if pathID != "" {
 		u.ID = pathID
-	}
-	if err := ctr.validate.Struct(u); err != nil {
-		log.WithError(err).Warn("invalid user body")
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
 	}
 	log = log.WithFields(logrus.Fields{
 		"user": u,

@@ -7,6 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"testing"
+	"time"
+
 	"github.com/RyanBard/go-service-ex/internal/apiclient"
 	"github.com/RyanBard/go-service-ex/internal/httpx"
 	"github.com/RyanBard/go-service-ex/it/config"
@@ -16,9 +20,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"net/http"
-	"testing"
-	"time"
 )
 
 const (

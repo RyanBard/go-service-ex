@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/RyanBard/go-service-ex/internal/config"
 	"github.com/RyanBard/go-service-ex/internal/idgen"
 	"github.com/RyanBard/go-service-ex/internal/mdlw"
@@ -10,11 +12,9 @@ import (
 	"github.com/RyanBard/go-service-ex/internal/tx"
 	"github.com/RyanBard/go-service-ex/internal/user"
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/sirupsen/logrus"
-	"net/http"
 )
 
 func main() {
@@ -45,15 +45,13 @@ func main() {
 
 	txMGR := tx.NewTXMGR(log, dbx)
 
-	validate := validator.New()
-
 	orgDAO := org.NewDAO(log, cfg.DB.QueryTimeout, dbx)
 	orgService := org.NewService(log, orgDAO, txMGR, timer, idGenerator)
-	orgCtrl := org.NewController(log, validate, orgService)
+	orgCtrl := org.NewController(log, orgService)
 
 	userDAO := user.NewDAO(log, cfg.DB.QueryTimeout, dbx)
 	userService := user.NewService(log, orgService, userDAO, txMGR, timer, idGenerator)
-	userCtrl := user.NewController(log, validate, userService)
+	userCtrl := user.NewController(log, userService)
 
 	r := gin.New()
 	r.Use(gin.Recovery())

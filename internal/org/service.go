@@ -42,7 +42,7 @@ type service struct {
 
 func NewService(log logrus.FieldLogger, dao OrgDAO, txMGR TXManager, timer Timer, idGen IDGenerator) *service {
 	return &service{
-		log:   log.WithField("SVC", "OrgSVC"),
+		log:   log.WithField("svc", "OrgSVC"),
 		dao:   dao,
 		txMGR: txMGR,
 		timer: timer,

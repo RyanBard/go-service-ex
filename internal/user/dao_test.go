@@ -5,15 +5,16 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"regexp"
+	"testing"
+	"time"
+
 	"github.com/RyanBard/go-service-ex/pkg/user"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
-	"regexp"
-	"testing"
-	"time"
 )
 
 var (

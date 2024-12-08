@@ -3,11 +3,12 @@ package tx
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
-	"testing"
 )
 
 var (

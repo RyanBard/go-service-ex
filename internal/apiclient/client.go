@@ -3,6 +3,7 @@ package apiclient
 import (
 	"context"
 	"fmt"
+
 	"github.com/RyanBard/go-service-ex/internal/httpx"
 )
 

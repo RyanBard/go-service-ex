@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/RyanBard/go-service-ex/internal/config"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"net/http"
-	"strings"
 )
 
 func ReqID(logger logrus.FieldLogger) gin.HandlerFunc {
@@ -20,7 +21,7 @@ func ReqID(logger logrus.FieldLogger) gin.HandlerFunc {
 			reqID = "generated-" + uuid.New().String()
 		}
 		log := logger.WithFields(logrus.Fields{
-			"SVC":   "Middleware",
+			"svc":   "Middleware",
 			"reqID": reqID,
 			"fn":    "ReqID",
 		})
@@ -32,7 +33,7 @@ func ReqID(logger logrus.FieldLogger) gin.HandlerFunc {
 func Auth(logger logrus.FieldLogger, cfg config.AuthConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := logger.WithFields(logrus.Fields{
-			"SVC":   "Middleware",
+			"svc":   "Middleware",
 			"reqID": c.Request.Context().Value("reqID"),
 			"fn":    "Auth",
 		})
@@ -100,7 +101,7 @@ func RequiresAdmin(logger logrus.FieldLogger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 		log := logger.WithFields(logrus.Fields{
-			"SVC":            "Middleware",
+			"svc":            "Middleware",
 			"reqID":          ctx.Value("reqID"),
 			"loggedInUserID": ctx.Value("userID"),
 			"fn":             "RequiresAdmin",

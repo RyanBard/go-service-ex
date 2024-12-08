@@ -1,9 +1,10 @@
 package timer
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNow(t *testing.T) {
