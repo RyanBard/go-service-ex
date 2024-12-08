@@ -3,12 +3,14 @@ package org
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"time"
 
+	"github.com/RyanBard/go-service-ex/internal/ctxutil"
+	"github.com/RyanBard/go-service-ex/internal/logutil"
 	"github.com/RyanBard/go-service-ex/pkg/org"
 	"github.com/jmoiron/sqlx"
-	"github.com/sirupsen/logrus"
 )
 
 type OrgDAO interface {
@@ -33,16 +35,16 @@ type IDGenerator interface {
 }
 
 type service struct {
-	log   logrus.FieldLogger
+	log   *slog.Logger
 	dao   OrgDAO
 	txMGR TXManager
 	timer Timer
 	idGen IDGenerator
 }
 
-func NewService(log logrus.FieldLogger, dao OrgDAO, txMGR TXManager, timer Timer, idGen IDGenerator) *service {
+func NewService(log *slog.Logger, dao OrgDAO, txMGR TXManager, timer Timer, idGen IDGenerator) *service {
 	return &service{
-		log:   log.WithField("svc", "OrgSVC"),
+		log:   log.With(logutil.LogAttrSVC("OrgSVC")),
 		dao:   dao,
 		txMGR: txMGR,
 		timer: timer,
@@ -51,23 +53,23 @@ func NewService(log logrus.FieldLogger, dao OrgDAO, txMGR TXManager, timer Timer
 }
 
 func (s service) GetByID(ctx context.Context, id string) (org.Org, error) {
-	log := s.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"fn":             "GetByID",
-		"loggedInUserID": ctx.Value("userID"),
-		"id":             id,
-	})
+	log := s.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("GetByID"),
+		logAttrOrgID(id),
+	)
 	log.Debug("called")
 	return s.dao.GetByID(ctx, id)
 }
 
 func (s service) GetAll(ctx context.Context, name string) ([]org.Org, error) {
-	log := s.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"fn":             "GetAll",
-		"loggedInUserID": ctx.Value("userID"),
-		"name":           name,
-	})
+	log := s.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("GetAll"),
+		logAttrOrgName(name),
+	)
 	log.Debug("called")
 	if name == "" {
 		return s.dao.GetAll(ctx)
@@ -77,16 +79,16 @@ func (s service) GetAll(ctx context.Context, name string) ([]org.Org, error) {
 }
 
 func (s service) Save(ctx context.Context, o org.Org) (out org.Org, err error) {
-	loggedInUserID, ok := ctx.Value("userID").(string)
-	if !ok {
+	loggedInUserID, _ := ctx.Value(ctxutil.ContextKeyUserID{}).(string)
+	if loggedInUserID == "" {
 		return out, errors.New("user not logged in")
 	}
-	log := s.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"fn":             "Save",
-		"loggedInUserID": loggedInUserID,
-		"org":            o,
-	})
+	log := s.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("Save"),
+		logAttrOrg(o),
+	)
 	log.Debug("called")
 	if o.ID != "" {
 		orgInDB, err := s.GetByID(ctx, o.ID)
@@ -123,12 +125,12 @@ func (s service) Save(ctx context.Context, o org.Org) (out org.Org, err error) {
 }
 
 func (s service) Delete(ctx context.Context, o org.DeleteOrg) error {
-	log := s.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"fn":             "Delete",
-		"loggedInUserID": ctx.Value("userID"),
-		"o":              o,
-	})
+	log := s.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("Delete"),
+		logAttrOrg(o),
+	)
 	log.Debug("called")
 	orgInDB, err := s.GetByID(ctx, o.ID)
 	if err != nil {

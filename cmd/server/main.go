@@ -2,10 +2,13 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/RyanBard/go-service-ex/internal/config"
 	"github.com/RyanBard/go-service-ex/internal/idgen"
+	"github.com/RyanBard/go-service-ex/internal/logutil"
 	"github.com/RyanBard/go-service-ex/internal/mdlw"
 	"github.com/RyanBard/go-service-ex/internal/org"
 	"github.com/RyanBard/go-service-ex/internal/timer"
@@ -14,22 +17,33 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	log := logrus.StandardLogger()
+	log := slog.Default()
+
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.WithError(err).Fatal("invalid config")
+		log.With(logutil.LogAttrError(err)).Error("invalid config")
+		panic(err)
 	}
-	logLvl, err := logrus.ParseLevel(cfg.LogLevel)
+
+	lvl, err := logutil.ParseLevel(cfg.LogLevel)
 	if err != nil {
-		log.WithError(err).Fatal("invalid log level")
+		log.With(
+			logutil.LogAttrError(err),
+			slog.String("logLevel", cfg.LogLevel),
+		).Error("invalid log level")
+		panic(err)
 	}
-	log.SetLevel(logLvl)
+	slogOpts := slog.HandlerOptions{
+		Level: lvl,
+	}
+
 	if cfg.Mode != "local" {
-		log.SetFormatter(&logrus.JSONFormatter{DisableHTMLEscape: true})
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slogOpts))
+	} else {
+		log = slog.New(slog.NewTextHandler(os.Stdout, &slogOpts))
 	}
 
 	timer := timer.New()
@@ -61,12 +75,12 @@ func main() {
 	r.Use(mdlw.ReqID(log))
 
 	r.GET("/health", func(c *gin.Context) {
-		log.WithField("reqID", c.Request.Context().Value("reqID")).Debug("Health called")
+		log.With(logutil.LogAttrReqID(c.Request.Context())).Debug("Health called")
 		c.Status(http.StatusNoContent)
 	})
 
 	r.GET("/readiness", func(c *gin.Context) {
-		log.WithField("reqID", c.Request.Context().Value("reqID")).Debug("Readiness called")
+		log.With(logutil.LogAttrReqID(c.Request.Context())).Debug("Readiness called")
 		c.Status(http.StatusNoContent)
 	})
 

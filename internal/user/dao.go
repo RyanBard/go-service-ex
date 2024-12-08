@@ -5,23 +5,24 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"github.com/RyanBard/go-service-ex/internal/logutil"
 	"github.com/RyanBard/go-service-ex/pkg/user"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
-	"github.com/sirupsen/logrus"
 )
 
 type dao struct {
-	log     logrus.FieldLogger
+	log     *slog.Logger
 	timeout time.Duration
 	db      *sqlx.DB
 }
 
-func NewDAO(log logrus.FieldLogger, timeout time.Duration, db *sqlx.DB) *dao {
+func NewDAO(log *slog.Logger, timeout time.Duration, db *sqlx.DB) *dao {
 	return &dao{
-		log:     log.WithField("svc", "UserDAO"),
+		log:     log.With(logutil.LogAttrSVC("UserDAO")),
 		timeout: timeout,
 		db:      db,
 	}
@@ -30,12 +31,12 @@ func NewDAO(log logrus.FieldLogger, timeout time.Duration, db *sqlx.DB) *dao {
 func (d dao) GetByID(ctx context.Context, id string) (u user.User, err error) {
 	ctx, cancel := context.WithTimeout(ctx, d.timeout)
 	defer cancel()
-	log := d.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"loggedInUserID": ctx.Value("userID"),
-		"fn":             "GetByID",
-		"id":             id,
-	})
+	log := d.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("GetByID"),
+		logAttrUserID(id),
+	)
 	log.Debug("called")
 	err = d.db.GetContext(ctx, &u, getByIDQuery, id)
 	if err != nil {
@@ -51,11 +52,11 @@ func (d dao) GetByID(ctx context.Context, id string) (u user.User, err error) {
 func (d dao) GetAll(ctx context.Context) (users []user.User, err error) {
 	ctx, cancel := context.WithTimeout(ctx, d.timeout)
 	defer cancel()
-	log := d.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"loggedInUserID": ctx.Value("userID"),
-		"fn":             "GetAll",
-	})
+	log := d.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("GetAll"),
+	)
 	log.Debug("called")
 	err = d.db.SelectContext(ctx, &users, getAllQuery)
 	if err != nil {
@@ -68,12 +69,12 @@ func (d dao) GetAll(ctx context.Context) (users []user.User, err error) {
 func (d dao) GetAllByOrgID(ctx context.Context, orgID string) (users []user.User, err error) {
 	ctx, cancel := context.WithTimeout(ctx, d.timeout)
 	defer cancel()
-	log := d.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"loggedInUserID": ctx.Value("userID"),
-		"fn":             "GetAllByOrgID",
-		"orgID":          orgID,
-	})
+	log := d.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("GetAllByOrgID"),
+		logAttrOrgID(orgID),
+	)
 	log.Debug("called")
 	users = []user.User{}
 	err = d.db.SelectContext(ctx, &users, getAllByOrgIDQuery, orgID)
@@ -87,12 +88,12 @@ func (d dao) GetAllByOrgID(ctx context.Context, orgID string) (users []user.User
 func (d dao) Create(ctx context.Context, tx *sqlx.Tx, u user.User) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, d.timeout)
 	defer cancel()
-	log := d.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"loggedInUserID": ctx.Value("userID"),
-		"fn":             "Create",
-		"user":           u,
-	})
+	log := d.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("Create"),
+		logAttrUser(u),
+	)
 	log.Debug("called")
 	r, err := tx.NamedExecContext(ctx, createQuery, &u)
 	if err != nil {
@@ -110,7 +111,7 @@ func (d dao) Create(ctx context.Context, tx *sqlx.Tx, u user.User) (err error) {
 		return err
 	}
 	if numRows != 1 {
-		return errors.New(fmt.Sprintf("unexpected number of rows affected: %d", numRows))
+		return fmt.Errorf("unexpected number of rows affected: %d", numRows)
 	}
 	log.Debug("success")
 	return err
@@ -119,12 +120,12 @@ func (d dao) Create(ctx context.Context, tx *sqlx.Tx, u user.User) (err error) {
 func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input user.User) (u user.User, err error) {
 	ctx, cancel := context.WithTimeout(ctx, d.timeout)
 	defer cancel()
-	log := d.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"loggedInUserID": ctx.Value("userID"),
-		"fn":             "Update",
-		"user":           input,
-	})
+	log := d.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("Update"),
+		logAttrUser(input),
+	)
 	log.Debug("called")
 	r, err := tx.NamedExecContext(ctx, updateQuery, &input)
 	if err != nil {
@@ -145,7 +146,7 @@ func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input user.User) (u user.U
 		return u, OptimisticLockErr{ID: input.ID, Version: input.Version}
 	}
 	if numRows != 1 {
-		return u, errors.New(fmt.Sprintf("unexpected number of rows affected: %d", numRows))
+		return u, fmt.Errorf("unexpected number of rows affected: %d", numRows)
 	}
 	log.Debug("success")
 	input.Version = input.Version + 1
@@ -155,12 +156,12 @@ func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input user.User) (u user.U
 func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, u user.DeleteUser) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, d.timeout)
 	defer cancel()
-	log := d.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"loggedInUserID": ctx.Value("userID"),
-		"fn":             "Delete",
-		"u":              u,
-	})
+	log := d.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("Delete"),
+		logAttrUser(u),
+	)
 	log.Debug("called")
 	r, err := tx.NamedExecContext(ctx, deleteQuery, &u)
 	if err != nil {
@@ -175,7 +176,7 @@ func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, u user.DeleteUser) (err er
 		return OptimisticLockErr{ID: u.ID, Version: u.Version}
 	}
 	if numRows != 1 {
-		return errors.New(fmt.Sprintf("unexpected number of rows affected: %d", numRows))
+		return fmt.Errorf("unexpected number of rows affected: %d", numRows)
 	}
 	log.Debug("success")
 	return err

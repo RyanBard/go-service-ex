@@ -3,11 +3,12 @@ package org
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
+	"github.com/RyanBard/go-service-ex/internal/logutil"
 	"github.com/RyanBard/go-service-ex/pkg/org"
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 type OrgService interface {
@@ -18,13 +19,13 @@ type OrgService interface {
 }
 
 type ctrl struct {
-	log     logrus.FieldLogger
+	log     *slog.Logger
 	service OrgService
 }
 
-func NewController(log logrus.FieldLogger, service OrgService) *ctrl {
+func NewController(log *slog.Logger, service OrgService) *ctrl {
 	return &ctrl{
-		log:     log.WithField("svc", "OrgCTL"),
+		log:     log.With(logutil.LogAttrSVC("OrgCTL")),
 		service: service,
 	}
 }
@@ -32,73 +33,71 @@ func NewController(log logrus.FieldLogger, service OrgService) *ctrl {
 func (ctr ctrl) GetByID(c *gin.Context) {
 	ctx := c.Request.Context()
 	id := c.Param("id")
-	log := ctr.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"loggedInUserID": ctx.Value("userID"),
-		"fn":             "GetByID",
-		"id":             id,
-	})
+	log := ctr.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("GetByID"),
+		logAttrOrgID(id),
+	)
 	log.Debug("called")
 	o, err := ctr.service.GetByID(ctx, id)
 	if err != nil {
 		var statusCode int
 		var notFound NotFoundErr
 		if errors.As(err, &notFound) {
-			log.WithError(err).Warn("resource not found")
+			log.With(logutil.LogAttrError(err)).Warn("resource not found")
 			statusCode = http.StatusNotFound
 		} else {
-			log.WithError(err).Error("service call failed")
+			log.With(logutil.LogAttrError(err)).Error("service call failed")
 			statusCode = http.StatusInternalServerError
 		}
 		c.JSON(statusCode, gin.H{"message": err.Error()})
 		return
 	}
-	log.WithField("org", o).Debug("success")
+	log.With(logAttrOrg(o)).Debug("success")
 	c.JSON(http.StatusOK, o)
 }
 
 func (ctr ctrl) GetAll(c *gin.Context) {
 	ctx := c.Request.Context()
 	name := c.Query("name")
-	log := ctr.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"loggedInUserID": ctx.Value("userID"),
-		"fn":             "GetAll",
-		"name":           name,
-	})
+	log := ctr.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("GetAll"),
+		logAttrOrgName(name),
+	)
 	log.Debug("called")
 	o, err := ctr.service.GetAll(ctx, name)
 	if err != nil {
-		log.WithError(err).Error("service call failed")
+		log.With(logutil.LogAttrError(err)).Error("service call failed")
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	log.WithField("orgsLen", len(o)).Debug("success")
+	log.With(logAttrOrgsLen(len(o))).Debug("success")
 	c.JSON(http.StatusOK, o)
 }
 
 func (ctr ctrl) Save(c *gin.Context) {
 	ctx := c.Request.Context()
 	pathID := c.Param("id")
-	log := ctr.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"loggedInUserID": ctx.Value("userID"),
-		"fn":             "Save",
-		"pathID":         pathID,
-	})
+	log := ctr.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("Save"),
+		logAttrPathID(pathID),
+	)
 	log.Debug("called")
 	var o org.Org
 	if err := c.ShouldBindJSON(&o); err != nil {
-		log.WithError(err).Warn("invalid request")
+		log.With(logutil.LogAttrError(err)).Warn("invalid request")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 	if pathID != "" {
 		o.ID = pathID
 	}
-	log = log.WithFields(logrus.Fields{
-		"org": o,
-	})
+	log = log.With(logAttrOrg(o))
 	log.Debug("body processed, about to call service")
 	o, err := ctr.service.Save(ctx, o)
 	if err != nil {
@@ -108,19 +107,19 @@ func (ctr ctrl) Save(c *gin.Context) {
 		var optLock OptimisticLockErr
 		var dupName NameAlreadyInUseErr
 		if errors.As(err, &notFound) {
-			log.WithError(err).Warn("resource not found")
+			log.With(logutil.LogAttrError(err)).Warn("resource not found")
 			statusCode = http.StatusNotFound
 		} else if errors.As(err, &modSysOrg) {
-			log.WithError(err).Warn("cannot modify system org")
+			log.With(logutil.LogAttrError(err)).Warn("cannot modify system org")
 			statusCode = http.StatusForbidden
 		} else if errors.As(err, &optLock) {
-			log.WithError(err).Warn("optimistic lock error")
+			log.With(logutil.LogAttrError(err)).Warn("optimistic lock error")
 			statusCode = http.StatusConflict
 		} else if errors.As(err, &dupName) {
-			log.WithError(err).Warn("duplicate name error")
+			log.With(logutil.LogAttrError(err)).Warn("duplicate name error")
 			statusCode = http.StatusConflict
 		} else {
-			log.WithError(err).Error("service call failed")
+			log.With(logutil.LogAttrError(err)).Error("service call failed")
 			statusCode = http.StatusInternalServerError
 		}
 		c.JSON(statusCode, gin.H{"message": err.Error()})
@@ -133,25 +132,23 @@ func (ctr ctrl) Save(c *gin.Context) {
 func (ctr ctrl) Delete(c *gin.Context) {
 	ctx := c.Request.Context()
 	pathID := c.Param("id")
-	log := ctr.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"loggedInUserID": ctx.Value("userID"),
-		"fn":             "Delete",
-		"pathID":         pathID,
-	})
+	log := ctr.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("Delete"),
+		logAttrPathID(pathID),
+	)
 	log.Debug("called")
 	var o org.DeleteOrg
 	if err := c.ShouldBindJSON(&o); err != nil {
-		log.WithError(err).Warn("invalid request")
+		log.With(logutil.LogAttrError(err)).Warn("invalid request")
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 	if pathID != "" {
 		o.ID = pathID
 	}
-	log = log.WithFields(logrus.Fields{
-		"org": o,
-	})
+	log = log.With(logAttrOrg(o))
 	log.Debug("body processed, about to call service")
 	if err := ctr.service.Delete(ctx, o); err != nil {
 		var statusCode int
@@ -159,17 +156,17 @@ func (ctr ctrl) Delete(c *gin.Context) {
 		var modSysOrg CannotModifySysOrgErr
 		var optLock OptimisticLockErr
 		if errors.As(err, &notFound) {
-			log.WithError(err).Warn("resource already gone, not deleting")
+			log.With(logutil.LogAttrError(err)).Warn("resource already gone, not deleting")
 			c.Status(http.StatusNoContent)
 			return
 		} else if errors.As(err, &modSysOrg) {
-			log.WithError(err).Warn("cannot modify system org")
+			log.With(logutil.LogAttrError(err)).Warn("cannot modify system org")
 			statusCode = http.StatusForbidden
 		} else if errors.As(err, &optLock) {
-			log.WithError(err).Warn("optimistic lock error")
+			log.With(logutil.LogAttrError(err)).Warn("optimistic lock error")
 			statusCode = http.StatusConflict
 		} else {
-			log.WithError(err).Error("service call failed")
+			log.With(logutil.LogAttrError(err)).Error("service call failed")
 			statusCode = http.StatusInternalServerError
 		}
 		c.JSON(statusCode, gin.H{"message": err.Error()})

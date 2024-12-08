@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RyanBard/go-service-ex/internal/testutil"
 	"github.com/RyanBard/go-service-ex/pkg/org"
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -32,8 +32,7 @@ func (errReader) Read(p []byte) (int, error) {
 }
 
 func initCTRL() (c *ctrl, ms *mockSVC) {
-	log := logrus.StandardLogger()
-	log.SetLevel(logrus.PanicLevel)
+	log := testutil.GetLogger()
 	ms = new(mockSVC)
 	c = NewController(log, ms)
 	return c, ms

@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"github.com/RyanBard/go-service-ex/internal/config"
+	"github.com/RyanBard/go-service-ex/internal/ctxutil"
+	"github.com/RyanBard/go-service-ex/internal/logutil"
+	"github.com/RyanBard/go-service-ex/internal/testutil"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,7 +51,8 @@ func hmacJWT(claims jwt.MapClaims) string {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenStr, err := token.SignedString([]byte(cfg.JWTSecret))
 	if err != nil {
-		logrus.WithError(err).Fatal("failed to sign jwt")
+		testutil.GetLogger().With(logutil.LogAttrError(err)).Error("failed to sign jwt")
+		panic(err)
 	}
 	return tokenStr
 }
@@ -58,7 +61,7 @@ func validNonAdminJWT() string {
 	return hmacJWT(validClaims(nonAdminUserID))
 }
 
-func validAdminFalseJWT() string {
+func validNonAdminExplicitFalseJWT() string {
 	claims := validClaims(nonAdminUserID)
 	claims["admin"] = false
 	return hmacJWT(claims)
@@ -93,7 +96,8 @@ func invalidHMACSigningMethodJWT() string {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
 	tokenStr, err := token.SignedString([]byte(cfg.JWTSecret))
 	if err != nil {
-		logrus.WithError(err).Fatal("failed to sign jwt")
+		testutil.GetLogger().With(logutil.LogAttrError(err)).Error("failed to sign jwt")
+		panic(err)
 	}
 	return tokenStr
 }
@@ -119,12 +123,14 @@ rqiuE4WB9nCxKD4Es+3u5dJzmWqRK/gYtKurCWVq
 `)
 	signKey, err := jwt.ParseRSAPrivateKeyFromPEM(signBytes)
 	if err != nil {
-		logrus.WithError(err).Fatal("failed to parse PEM")
+		testutil.GetLogger().With(logutil.LogAttrError(err)).Error("failed to parse PEM")
+		panic(err)
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tokenStr, err := token.SignedString(signKey)
 	if err != nil {
-		logrus.WithError(err).Fatal("failed to sign jwt")
+		testutil.GetLogger().With(logutil.LogAttrError(err)).Error("failed to sign jwt")
+		panic(err)
 	}
 	return tokenStr
 }
@@ -134,7 +140,8 @@ func invalidSecretJWT() string {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenStr, err := token.SignedString([]byte("wrong"))
 	if err != nil {
-		logrus.WithError(err).Fatal("failed to sign jwt")
+		testutil.GetLogger().With(logutil.LogAttrError(err)).Error("failed to sign jwt")
+		panic(err)
 	}
 	return tokenStr
 }
@@ -158,12 +165,12 @@ func TestReqID_NoHeader(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{})
 	assert.Nil(t, err)
 
-	mw := ReqID(logrus.StandardLogger())
+	mw := ReqID(testutil.GetLogger())
 	mw(gc)
 	c := gc.Request.Context()
 
 	assert.Equal(t, 200, w.Result().StatusCode)
-	actual := c.Value("reqID")
+	actual := c.Value(ctxutil.ContextKeyReqID{})
 	assert.Contains(t, actual, "generated-")
 }
 
@@ -173,12 +180,12 @@ func TestReqID_Header(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{"X-Request-Id": expected})
 	assert.Nil(t, err)
 
-	mw := ReqID(logrus.StandardLogger())
+	mw := ReqID(testutil.GetLogger())
 	mw(gc)
 	c := gc.Request.Context()
 
 	assert.Equal(t, 200, w.Result().StatusCode)
-	actual := c.Value("reqID")
+	actual := c.Value(ctxutil.ContextKeyReqID{})
 	assert.Equal(t, expected, actual)
 }
 
@@ -186,12 +193,12 @@ func TestAuth_NoHeader(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger(), cfg)
+	mw := Auth(testutil.GetLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
 	assert.Equal(t, 401, w.Result().StatusCode)
-	actual := c.Value("userID")
+	actual := c.Value(ctxutil.ContextKeyUserID{})
 	assert.Nil(t, actual)
 }
 
@@ -199,12 +206,12 @@ func TestAuth_NotBearer(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{"Authorization": basic(validAdminJWT())})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger(), cfg)
+	mw := Auth(testutil.GetLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
 	assert.Equal(t, 401, w.Result().StatusCode)
-	actual := c.Value("userID")
+	actual := c.Value(ctxutil.ContextKeyUserID{})
 	assert.Nil(t, actual)
 }
 
@@ -212,12 +219,12 @@ func TestAuth_MalformedTooManyParts(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{"Authorization": bearer(bearer(validAdminJWT()))})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger(), cfg)
+	mw := Auth(testutil.GetLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
 	assert.Equal(t, 401, w.Result().StatusCode)
-	actual := c.Value("userID")
+	actual := c.Value(ctxutil.ContextKeyUserID{})
 	assert.Nil(t, actual)
 }
 
@@ -225,12 +232,12 @@ func TestAuth_InvalidExpiredToken(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{"Authorization": bearer(invalidExpiredJWT())})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger(), cfg)
+	mw := Auth(testutil.GetLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
 	assert.Equal(t, 401, w.Result().StatusCode)
-	actual := c.Value("userID")
+	actual := c.Value(ctxutil.ContextKeyUserID{})
 	assert.Nil(t, actual)
 }
 
@@ -238,12 +245,12 @@ func TestAuth_InvalidIssuerToken(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{"Authorization": bearer(invalidIssuerJWT())})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger(), cfg)
+	mw := Auth(testutil.GetLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
 	assert.Equal(t, 401, w.Result().StatusCode)
-	actual := c.Value("userID")
+	actual := c.Value(ctxutil.ContextKeyUserID{})
 	assert.Nil(t, actual)
 }
 
@@ -251,12 +258,12 @@ func TestAuth_InvalidAudienceToken(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{"Authorization": bearer(invalidAudienceJWT())})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger(), cfg)
+	mw := Auth(testutil.GetLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
 	assert.Equal(t, 401, w.Result().StatusCode)
-	actual := c.Value("userID")
+	actual := c.Value(ctxutil.ContextKeyUserID{})
 	assert.Nil(t, actual)
 }
 
@@ -264,12 +271,12 @@ func TestAuth_InvalidSecretToken(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{"Authorization": bearer(invalidSecretJWT())})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger(), cfg)
+	mw := Auth(testutil.GetLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
 	assert.Equal(t, 401, w.Result().StatusCode)
-	actual := c.Value("userID")
+	actual := c.Value(ctxutil.ContextKeyUserID{})
 	assert.Nil(t, actual)
 }
 
@@ -277,12 +284,12 @@ func TestAuth_InvalidHMACAlgToken(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{"Authorization": bearer(invalidHMACSigningMethodJWT())})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger(), cfg)
+	mw := Auth(testutil.GetLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
 	assert.Equal(t, 401, w.Result().StatusCode)
-	actual := c.Value("userID")
+	actual := c.Value(ctxutil.ContextKeyUserID{})
 	assert.Nil(t, actual)
 }
 
@@ -290,12 +297,12 @@ func TestAuth_InvalidRSAToken(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{"Authorization": bearer(invalidRSAJWT())})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger(), cfg)
+	mw := Auth(testutil.GetLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
 	assert.Equal(t, 401, w.Result().StatusCode)
-	actual := c.Value("userID")
+	actual := c.Value(ctxutil.ContextKeyUserID{})
 	assert.Nil(t, actual)
 }
 
@@ -303,26 +310,48 @@ func TestAuth_ValidNonAdminToken(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{"Authorization": bearer(validNonAdminJWT())})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger(), cfg)
+	mw := Auth(testutil.GetLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
 	assert.Equal(t, 200, w.Result().StatusCode)
-	actual := c.Value("userID")
+	actual := c.Value(ctxutil.ContextKeyUserID{})
 	assert.Equal(t, nonAdminUserID, actual)
+	claims := c.Value(ctxutil.ContextKeyJWTClaims{}).(jwt.MapClaims)
+	admin, _ := claims["admin"].(bool)
+	assert.Equal(t, false, admin)
 }
 
 func TestAuth_ValidAdminToken(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{"Authorization": bearer(validAdminJWT())})
 	assert.Nil(t, err)
 
-	mw := Auth(logrus.StandardLogger(), cfg)
+	mw := Auth(testutil.GetLogger(), cfg)
 	mw(gc)
 	c := gc.Request.Context()
 
 	assert.Equal(t, 200, w.Result().StatusCode)
-	actual := c.Value("userID")
+	actual := c.Value(ctxutil.ContextKeyUserID{})
 	assert.Equal(t, adminUserID, actual)
+	claims := c.Value(ctxutil.ContextKeyJWTClaims{}).(jwt.MapClaims)
+	admin, _ := claims["admin"].(bool)
+	assert.Equal(t, true, admin)
+}
+
+func TestAuth_ValidExplicitAdminFalseToken(t *testing.T) {
+	gc, w, err := ginContext(map[string]string{"Authorization": bearer(validNonAdminExplicitFalseJWT())})
+	assert.Nil(t, err)
+
+	mw := Auth(testutil.GetLogger(), cfg)
+	mw(gc)
+	c := gc.Request.Context()
+
+	assert.Equal(t, 200, w.Result().StatusCode)
+	actual := c.Value(ctxutil.ContextKeyUserID{})
+	assert.Equal(t, nonAdminUserID, actual)
+	claims := c.Value(ctxutil.ContextKeyJWTClaims{}).(jwt.MapClaims)
+	admin, _ := claims["admin"].(bool)
+	assert.Equal(t, false, admin)
 }
 
 func TestRequiresAdmin_Admin(t *testing.T) {
@@ -332,9 +361,9 @@ func TestRequiresAdmin_Admin(t *testing.T) {
 	claims := jwt.MapClaims{
 		"admin": true,
 	}
-	gc.Request = gc.Request.WithContext(context.WithValue(gc.Request.Context(), "jwtClaims", claims))
+	gc.Request = gc.Request.WithContext(context.WithValue(gc.Request.Context(), ctxutil.ContextKeyJWTClaims{}, claims))
 
-	mw := RequiresAdmin(logrus.StandardLogger())
+	mw := RequiresAdmin(testutil.GetLogger())
 	mw(gc)
 
 	assert.Equal(t, 200, w.Result().StatusCode)
@@ -345,9 +374,9 @@ func TestRequiresAdmin_NonAdmin(t *testing.T) {
 	assert.Nil(t, err)
 
 	claims := jwt.MapClaims{}
-	gc.Request = gc.Request.WithContext(context.WithValue(gc.Request.Context(), "jwtClaims", claims))
+	gc.Request = gc.Request.WithContext(context.WithValue(gc.Request.Context(), ctxutil.ContextKeyJWTClaims{}, claims))
 
-	mw := RequiresAdmin(logrus.StandardLogger())
+	mw := RequiresAdmin(testutil.GetLogger())
 	mw(gc)
 
 	assert.Equal(t, 403, w.Result().StatusCode)
@@ -360,9 +389,9 @@ func TestRequiresAdmin_AdminFalse(t *testing.T) {
 	claims := jwt.MapClaims{
 		"admin": false,
 	}
-	gc.Request = gc.Request.WithContext(context.WithValue(gc.Request.Context(), "jwtClaims", claims))
+	gc.Request = gc.Request.WithContext(context.WithValue(gc.Request.Context(), ctxutil.ContextKeyJWTClaims{}, claims))
 
-	mw := RequiresAdmin(logrus.StandardLogger())
+	mw := RequiresAdmin(testutil.GetLogger())
 	mw(gc)
 
 	assert.Equal(t, 403, w.Result().StatusCode)
@@ -372,7 +401,7 @@ func TestRequiresAdmin_NoClaimsAvailable(t *testing.T) {
 	gc, w, err := ginContext(map[string]string{})
 	assert.Nil(t, err)
 
-	mw := RequiresAdmin(logrus.StandardLogger())
+	mw := RequiresAdmin(testutil.GetLogger())
 	mw(gc)
 
 	assert.Equal(t, 403, w.Result().StatusCode)

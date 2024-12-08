@@ -5,8 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/RyanBard/go-service-ex/internal/logutil"
+	"github.com/RyanBard/go-service-ex/internal/testutil"
 	"github.com/jmoiron/sqlx"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
@@ -16,11 +17,11 @@ var (
 )
 
 func initMGR() (m *txmgr, dbx *sqlx.DB, md sqlmock.Sqlmock) {
-	log := logrus.StandardLogger()
-	log.SetLevel(logrus.DebugLevel)
+	log := testutil.GetLogger()
 	db, md, err := sqlmock.New()
 	if err != nil {
-		log.Fatal("failed to mock db")
+		log.With(logutil.LogAttrError(err)).Error("failed to mock db")
+		panic(err)
 	}
 	dbx = sqlx.NewDb(db, "sqlmock")
 	m = NewTXMGR(log, dbx)

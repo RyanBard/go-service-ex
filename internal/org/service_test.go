@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RyanBard/go-service-ex/internal/ctxutil"
+	"github.com/RyanBard/go-service-ex/internal/testutil"
 	"github.com/RyanBard/go-service-ex/pkg/org"
 	"github.com/jmoiron/sqlx"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -31,8 +32,7 @@ type mockIDGen struct {
 }
 
 func initSVC() (s *service, md *mockDAO, mm *mockTXManager, mt *mockTimer, mi *mockIDGen) {
-	log := logrus.StandardLogger()
-	log.SetLevel(logrus.PanicLevel)
+	log := testutil.GetLogger()
 	md = new(mockDAO)
 	mm = new(mockTXManager)
 	mt = new(mockTimer)
@@ -45,7 +45,7 @@ func TestSVCGetByID(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	id := "foo-id"
 
 	mockRes := org.Org{
@@ -65,7 +65,7 @@ func TestSVCGetByID_DAOErr(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	id := "foo-id"
 
 	mockErr := errors.New("unit-test mock error")
@@ -81,7 +81,7 @@ func TestSVCGetAll(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	name := ""
 
 	mockRes := []org.Org{
@@ -103,7 +103,7 @@ func TestSVCGetAll_DAOErr(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	name := ""
 
 	mockErr := errors.New("unit-test mock error")
@@ -119,7 +119,7 @@ func TestSVCGetAll_NameSpecified(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	name := "foo"
 
 	mockRes := []org.Org{
@@ -141,7 +141,7 @@ func TestSVCGetAll_UpperCaseNameSpecified(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	name := "FOO"
 
 	mockRes := []org.Org{
@@ -163,7 +163,7 @@ func TestSVCGetAll_NameSpecified_DAOErr(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	name := "foo"
 
 	mockErr := errors.New("unit-test mock error")
@@ -179,7 +179,7 @@ func TestSVCSave_NoID(t *testing.T) {
 	s, md, _, mt, mi := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	o := org.Org{
 		Name:      "foo-name",
 		Desc:      "foo-desc",
@@ -219,7 +219,7 @@ func TestSVCSave_NoID_DAOErr(t *testing.T) {
 	s, md, _, mt, mi := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	o := org.Org{
 		Name: "foo-name",
 		Desc: "foo-desc",
@@ -245,7 +245,7 @@ func TestSVCSave_ID(t *testing.T) {
 	s, md, _, mt, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	o := org.Org{
 		ID:        "foo-id",
 		Name:      "foo-name",
@@ -280,7 +280,7 @@ func TestSVCSave_ID_DAOUpdateErr(t *testing.T) {
 	s, md, _, mt, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	o := org.Org{
 		ID:        "foo-id",
 		Name:      "foo-name",
@@ -308,7 +308,7 @@ func TestSVCSave_ID_OrgNotFound(t *testing.T) {
 	s, md, _, mt, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	o := org.Org{
 		ID:        "foo-id",
 		Name:      "foo-name",
@@ -337,7 +337,7 @@ func TestSVCSave_ID_SystemOrgNotAllowed(t *testing.T) {
 	s, md, _, mt, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	o := org.Org{
 		ID:        "foo-id",
 		Name:      "foo-name",
@@ -389,7 +389,7 @@ func TestSVCDelete(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	o := org.DeleteOrg{
 		ID:      "foo-id",
 		Version: 2,
@@ -407,7 +407,7 @@ func TestSVCDelete_DAOErr(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	o := org.DeleteOrg{
 		ID:      "foo-id",
 		Version: 2,
@@ -426,7 +426,7 @@ func TestSVCDelete_OrgNotFound(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	o := org.DeleteOrg{
 		ID:      "foo-id",
 		Version: 2,
@@ -445,7 +445,7 @@ func TestSVCDelete_SystemOrgNotAllowed(t *testing.T) {
 	s, md, _, _, _ := initSVC()
 
 	loggedInUserID := "logged-in-user-id"
-	ctx := context.WithValue(context.Background(), "userID", loggedInUserID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyUserID{}, loggedInUserID)
 	o := org.DeleteOrg{
 		ID:      "foo-id",
 		Version: 2,

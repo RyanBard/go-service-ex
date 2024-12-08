@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/RyanBard/go-service-ex/internal/apiclient"
+	"github.com/RyanBard/go-service-ex/internal/ctxutil"
 	"github.com/RyanBard/go-service-ex/internal/httpx"
 	"github.com/stretchr/testify/assert"
 )
@@ -29,7 +30,7 @@ func bearer(s string) string {
 
 func TestGetByID(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	id := "test-org-id"
 	expectedOrg := Org{
 		ID:   id,
@@ -59,7 +60,7 @@ func TestGetByID(t *testing.T) {
 
 func TestGetByID_TokenErr(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	id := "test-org-id"
 	mockTokenErr := errors.New("test-token-err")
 	getToken := func(isRetry bool) (string, error) {
@@ -73,7 +74,7 @@ func TestGetByID_TokenErr(t *testing.T) {
 
 func TestGetByID_HTTPErr(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	id := "test-org-id"
 	token := "test-token"
 	getToken := func(isRetry bool) (string, error) {
@@ -90,7 +91,7 @@ func TestGetByID_HTTPErr(t *testing.T) {
 
 func TestGetAll(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	expectedOrg := Org{
 		ID:   "test-org-id",
 		Name: "foo",
@@ -119,7 +120,7 @@ func TestGetAll(t *testing.T) {
 
 func TestGetAll_TokenErr(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	mockTokenErr := errors.New("test-token-err")
 	getToken := func(isRetry bool) (string, error) {
 		return "", mockTokenErr
@@ -132,7 +133,7 @@ func TestGetAll_TokenErr(t *testing.T) {
 
 func TestGetAll_HTTPErr(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	token := "test-token"
 	getToken := func(isRetry bool) (string, error) {
 		return token, nil
@@ -148,7 +149,7 @@ func TestGetAll_HTTPErr(t *testing.T) {
 
 func TestSearchByName(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	name := "foo"
 	expectedOrg := Org{
 		ID:   "test-org-id",
@@ -179,7 +180,7 @@ func TestSearchByName(t *testing.T) {
 
 func TestSearchByName_TokenErr(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	name := "foo"
 	mockTokenErr := errors.New("test-token-err")
 	getToken := func(isRetry bool) (string, error) {
@@ -193,7 +194,7 @@ func TestSearchByName_TokenErr(t *testing.T) {
 
 func TestSearchByName_HTTPErr(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	name := "foo"
 	token := "test-token"
 	getToken := func(isRetry bool) (string, error) {
@@ -210,7 +211,7 @@ func TestSearchByName_HTTPErr(t *testing.T) {
 
 func TestCreate(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	input := Org{
 		Name: "foo",
 	}
@@ -241,7 +242,7 @@ func TestCreate(t *testing.T) {
 
 func TestCreate_TokenErr(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	input := Org{
 		Name: "foo",
 	}
@@ -257,7 +258,7 @@ func TestCreate_TokenErr(t *testing.T) {
 
 func TestCreate_HTTPErr(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	input := Org{
 		Name: "foo",
 	}
@@ -276,7 +277,7 @@ func TestCreate_HTTPErr(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	id := "test-org-id"
 	input := Org{
 		ID:   id,
@@ -307,7 +308,7 @@ func TestUpdate(t *testing.T) {
 
 func TestUpdate_TokenErr(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	id := "test-org-id"
 	input := Org{
 		ID:   id,
@@ -325,7 +326,7 @@ func TestUpdate_TokenErr(t *testing.T) {
 
 func TestUpdate_HTTPErr(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	id := "test-org-id"
 	input := Org{
 		ID:   id,
@@ -346,7 +347,7 @@ func TestUpdate_HTTPErr(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	id := "test-org-id"
 	input := DeleteOrg{
 		ID:      id,
@@ -374,7 +375,7 @@ func TestDelete(t *testing.T) {
 
 func TestDelete_TokenErr(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	id := "test-org-id"
 	input := DeleteOrg{
 		ID:      id,
@@ -391,7 +392,7 @@ func TestDelete_TokenErr(t *testing.T) {
 
 func TestDelete_HTTPErr(t *testing.T) {
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	id := "test-org-id"
 	input := DeleteOrg{
 		ID:      id,

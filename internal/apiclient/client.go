@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/RyanBard/go-service-ex/internal/ctxutil"
 	"github.com/RyanBard/go-service-ex/internal/httpx"
 )
 
@@ -36,7 +37,7 @@ func (ac *Client) Delete(ctx context.Context, path string, pathParams map[string
 }
 
 func (ac *Client) common(ctx context.Context, method string, path string, pathParams map[string]string, queryParams map[string][]string, in interface{}, out interface{}) (err error) {
-	reqID, _ := ctx.Value("reqID").(string)
+	reqID, _ := ctx.Value(ctxutil.ContextKeyReqID{}).(string)
 
 	var hb httpx.Builder
 	switch method {

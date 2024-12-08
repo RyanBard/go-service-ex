@@ -2,35 +2,36 @@ package tx
 
 import (
 	"context"
+	"log/slog"
 
+	"github.com/RyanBard/go-service-ex/internal/logutil"
 	"github.com/jmoiron/sqlx"
-	"github.com/sirupsen/logrus"
 )
 
 type txmgr struct {
-	log logrus.FieldLogger
+	log *slog.Logger
 	db  *sqlx.DB
 }
 
-func NewTXMGR(log logrus.FieldLogger, db *sqlx.DB) *txmgr {
+func NewTXMGR(log *slog.Logger, db *sqlx.DB) *txmgr {
 	return &txmgr{
-		log: log.WithField("svc", "TXManager"),
+		log: log.With(logutil.LogAttrSVC("TXManager")),
 		db:  db,
 	}
 }
 
 func (m txmgr) Do(ctx context.Context, joinTX *sqlx.Tx, f func(*sqlx.Tx) error) (err error) {
-	log := m.log.WithFields(logrus.Fields{
-		"reqID":          ctx.Value("reqID"),
-		"loggedInUserID": ctx.Value("userID"),
-		"fn":             "Do",
-	})
+	log := m.log.With(
+		logutil.LogAttrReqID(ctx),
+		logutil.LogAttrLoggedInUserID(ctx),
+		logutil.LogAttrFN("Do"),
+	)
 	var tx *sqlx.Tx
 	if joinTX == nil {
 		log.Debug("creating tx")
 		tx, err = m.db.Beginx()
 		if err != nil {
-			log.WithError(err).Error("failed to create tx")
+			log.With(logutil.LogAttrError(err)).Error("failed to create tx")
 			return err
 		}
 	} else {
@@ -43,17 +44,17 @@ func (m txmgr) Do(ctx context.Context, joinTX *sqlx.Tx, f func(*sqlx.Tx) error) 
 			return
 		}
 		if err != nil {
-			log.WithError(err).Warn("f errored, rolling back tx")
+			log.With(logutil.LogAttrError(err)).Warn("f errored, rolling back tx")
 			rbErr := tx.Rollback()
 			if rbErr != nil {
-				log.WithError(rbErr).Error("rollback failed")
+				log.With(logutil.LogAttrError(rbErr)).Error("rollback failed")
 			}
 			return
 		}
 		log.Debug("f succeeded, committing tx")
 		err = tx.Commit()
 		if err != nil {
-			log.WithError(err).Error("failed to commit tx")
+			log.With(logutil.LogAttrError(err)).Error("failed to commit tx")
 		}
 	}()
 	log.Debug("calling f")

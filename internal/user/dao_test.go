@@ -9,10 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RyanBard/go-service-ex/internal/logutil"
+	"github.com/RyanBard/go-service-ex/internal/testutil"
 	"github.com/RyanBard/go-service-ex/pkg/user"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
@@ -62,11 +63,11 @@ func getRows() *sqlmock.Rows {
 }
 
 func initDAO() (d *dao, dbx *sqlx.DB, md sqlmock.Sqlmock) {
-	log := logrus.StandardLogger()
-	log.SetLevel(logrus.PanicLevel)
+	log := testutil.GetLogger()
 	db, md, err := sqlmock.New()
 	if err != nil {
-		log.Fatal("failed to mock db")
+		log.With(logutil.LogAttrError(err)).Error("failed to mock db")
+		panic(err)
 	}
 	dbx = sqlx.NewDb(db, "sqlmock")
 	queryTimeout := 30 * time.Second

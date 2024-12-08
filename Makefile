@@ -1,4 +1,4 @@
-.PHONY: default clean deps pretty test start coverage coverage-profile coverage-html integration-test
+.PHONY: default clean deps update-deps pretty test start coverage coverage-profile coverage-html integration-test
 
 default: clean deps pretty build test
 
@@ -7,6 +7,10 @@ clean:
 
 deps:
 	go mod download
+
+update-deps:
+	go get -u ./...
+	go mod tidy
 
 pretty:
 	gofmt -l -s -w .
@@ -27,7 +31,7 @@ _coverage:
 	mkdir _coverage
 
 coverage-profile: _coverage
-	go test -coverprofile=_coverage/coverage.out ./...
+	go test -count=1 -coverprofile=_coverage/coverage.out ./...
 
 coverage-html: coverage-profile
 	go tool cover -html=_coverage/coverage.out -o _coverage/coverage.html

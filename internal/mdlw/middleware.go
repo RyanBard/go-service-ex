@@ -4,39 +4,46 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/RyanBard/go-service-ex/internal/config"
+	"github.com/RyanBard/go-service-ex/internal/ctxutil"
+	"github.com/RyanBard/go-service-ex/internal/logutil"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 )
 
-func ReqID(logger logrus.FieldLogger) gin.HandlerFunc {
+func logAttrSVC() slog.Attr {
+	return logutil.LogAttrSVC("Middleware")
+}
+
+func ReqID(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		reqID := c.GetHeader("x-request-id")
 		if reqID == "" {
 			reqID = "generated-" + uuid.New().String()
 		}
-		log := logger.WithFields(logrus.Fields{
-			"svc":   "Middleware",
-			"reqID": reqID,
-			"fn":    "ReqID",
-		})
+		ctx := context.WithValue(c.Request.Context(), ctxutil.ContextKeyReqID{}, reqID)
+		c.Request = c.Request.WithContext(ctx)
+		log := logger.With(
+			logAttrSVC(),
+			logutil.LogAttrReqID(ctx),
+			logutil.LogAttrFN("ReqID"),
+		)
 		log.Debug("called")
-		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "reqID", reqID))
 	}
 }
 
-func Auth(logger logrus.FieldLogger, cfg config.AuthConfig) gin.HandlerFunc {
+func Auth(logger *slog.Logger, cfg config.AuthConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		log := logger.WithFields(logrus.Fields{
-			"svc":   "Middleware",
-			"reqID": c.Request.Context().Value("reqID"),
-			"fn":    "Auth",
-		})
+		log := logger.With(
+			logAttrSVC(),
+			logutil.LogAttrReqID(c.Request.Context()),
+			logutil.LogAttrFN("Auth"),
+		)
 		log.Debug("called")
 		auth := c.GetHeader("authorization")
 		if auth == "" {
@@ -47,24 +54,24 @@ func Auth(logger logrus.FieldLogger, cfg config.AuthConfig) gin.HandlerFunc {
 		parts := strings.Split(auth, "Bearer ")
 		partsLen := len(parts)
 		if partsLen != 2 {
-			log.WithField("partsLen", partsLen).Warn("Authorization header was malformed (not well formed Bearer)")
+			log.With(slog.Int("partsLen", partsLen)).Warn("Authorization header was malformed (not well formed Bearer)")
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 		token := strings.Trim(parts[1], " \t\r\n")
 		claims, err := validateJWT(cfg, token)
 		if err != nil {
-			log.WithError(err).Warn("jwt validation failed")
+			log.With(logutil.LogAttrError(err)).Warn("jwt validation failed")
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 		userID := claims["sub"]
-		log.WithFields(logrus.Fields{
-			"claims":         claims,
-			"loggedInUserID": userID,
-		}).Debug("Token was valid, proceeding")
-		ctx := context.WithValue(c.Request.Context(), "userID", userID)
-		ctx = context.WithValue(ctx, "jwtClaims", claims)
+		ctx := context.WithValue(c.Request.Context(), ctxutil.ContextKeyUserID{}, userID)
+		ctx = context.WithValue(ctx, ctxutil.ContextKeyJWTClaims{}, claims)
+		log.With(
+			slog.Any("claims", claims),
+			logutil.LogAttrLoggedInUserID(ctx),
+		).Debug("Token was valid, proceeding")
 		c.Request = c.Request.WithContext(ctx)
 	}
 }
@@ -97,17 +104,17 @@ func validateJWT(cfg config.AuthConfig, tokenStr string) (jwt.MapClaims, error) 
 	return claims, nil
 }
 
-func RequiresAdmin(logger logrus.FieldLogger) gin.HandlerFunc {
+func RequiresAdmin(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
-		log := logger.WithFields(logrus.Fields{
-			"svc":            "Middleware",
-			"reqID":          ctx.Value("reqID"),
-			"loggedInUserID": ctx.Value("userID"),
-			"fn":             "RequiresAdmin",
-		})
+		log := logger.With(
+			logAttrSVC(),
+			logutil.LogAttrReqID(ctx),
+			logutil.LogAttrLoggedInUserID(ctx),
+			logutil.LogAttrFN("RequiresAdmin"),
+		)
 		log.Debug("called")
-		claims, ok := ctx.Value("jwtClaims").(jwt.MapClaims)
+		claims, ok := ctx.Value(ctxutil.ContextKeyJWTClaims{}).(jwt.MapClaims)
 		if !ok {
 			log.Warn("jwtClaims not in context")
 			c.AbortWithStatus(http.StatusForbidden)

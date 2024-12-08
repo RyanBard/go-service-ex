@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/RyanBard/go-service-ex/internal/ctxutil"
 	"github.com/RyanBard/go-service-ex/internal/httpx"
 	"github.com/stretchr/testify/assert"
 )
@@ -33,7 +34,7 @@ func TestGet(t *testing.T) {
 		return token, nil
 	}
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	path := "/api/foo"
 	pathParams := map[string]string{}
 	queryParams := map[string][]string{}
@@ -63,7 +64,7 @@ func TestPost(t *testing.T) {
 		return token, nil
 	}
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	path := "/api/foo"
 	pathParams := map[string]string{}
 	queryParams := map[string][]string{}
@@ -97,7 +98,7 @@ func TestPut(t *testing.T) {
 		return token, nil
 	}
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	path := "/api/foo"
 	pathParams := map[string]string{}
 	queryParams := map[string][]string{}
@@ -131,7 +132,7 @@ func TestDelete(t *testing.T) {
 		return token, nil
 	}
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	path := "/api/foo"
 	pathParams := map[string]string{}
 	queryParams := map[string][]string{}
@@ -165,7 +166,7 @@ func TestTokenErr(t *testing.T) {
 		return "", mockTokenErr
 	}
 	reqID := "test-req-id"
-	ctx := context.WithValue(context.Background(), "reqID", reqID)
+	ctx := context.WithValue(context.Background(), ctxutil.ContextKeyReqID{}, reqID)
 	pathParams := map[string]string{}
 	queryParams := map[string][]string{}
 	var out Payload
