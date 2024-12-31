@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RyanBard/go-service-ex/internal/ctxutil"
-	"github.com/RyanBard/go-service-ex/internal/logutil"
+	ctxutil "github.com/RyanBard/go-ctx-util/pkg"
+	logutil "github.com/RyanBard/go-log-util/pkg"
 	"github.com/RyanBard/go-service-ex/pkg/org"
 	"github.com/jmoiron/sqlx"
 )

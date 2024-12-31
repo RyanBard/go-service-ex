@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RyanBard/go-service-ex/internal/ctxutil"
+	ctxutil "github.com/RyanBard/go-ctx-util/pkg"
 	"github.com/RyanBard/go-service-ex/internal/testutil"
 	"github.com/RyanBard/go-service-ex/pkg/org"
 	"github.com/jmoiron/sqlx"

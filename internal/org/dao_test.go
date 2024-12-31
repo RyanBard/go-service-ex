@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RyanBard/go-service-ex/internal/logutil"
+	logutil "github.com/RyanBard/go-log-util/pkg"
 	"github.com/RyanBard/go-service-ex/internal/testutil"
 	"github.com/RyanBard/go-service-ex/pkg/org"
 	"github.com/jmoiron/sqlx"

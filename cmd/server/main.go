@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"os"
 
+	logutil "github.com/RyanBard/go-log-util/pkg"
 	"github.com/RyanBard/go-service-ex/internal/config"
 	"github.com/RyanBard/go-service-ex/internal/idgen"
-	"github.com/RyanBard/go-service-ex/internal/logutil"
 	"github.com/RyanBard/go-service-ex/internal/mdlw"
 	"github.com/RyanBard/go-service-ex/internal/org"
 	"github.com/RyanBard/go-service-ex/internal/timer"

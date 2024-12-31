@@ -9,11 +9,13 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lib/pq v1.10.9
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	gopkg.in/DATA-DOG/go-sqlmock.v1 v1.3.0
 )
 
 require (
+	github.com/RyanBard/go-ctx-util v0.1.0 // indirect
+	github.com/RyanBard/go-log-util v0.1.0 // indirect
 	github.com/bytedance/sonic v1.12.5 // indirect
 	github.com/bytedance/sonic/loader v0.2.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect

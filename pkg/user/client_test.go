@@ -9,8 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	ctxutil "github.com/RyanBard/go-ctx-util/pkg"
 	"github.com/RyanBard/go-service-ex/internal/apiclient"
-	"github.com/RyanBard/go-service-ex/internal/ctxutil"
 	"github.com/RyanBard/go-service-ex/internal/httpx"
 	"github.com/stretchr/testify/assert"
 )

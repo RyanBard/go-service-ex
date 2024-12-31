@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/RyanBard/go-service-ex/internal/ctxutil"
+	ctxutil "github.com/RyanBard/go-ctx-util/pkg"
 	"github.com/RyanBard/go-service-ex/internal/httpx"
 	"github.com/stretchr/testify/assert"
 )

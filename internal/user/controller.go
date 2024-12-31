@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/RyanBard/go-service-ex/internal/logutil"
+	logutil "github.com/RyanBard/go-log-util/pkg"
 	"github.com/RyanBard/go-service-ex/internal/org"
 	"github.com/RyanBard/go-service-ex/pkg/user"
 	"github.com/gin-gonic/gin"

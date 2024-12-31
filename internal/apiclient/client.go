@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/RyanBard/go-service-ex/internal/ctxutil"
+	ctxutil "github.com/RyanBard/go-ctx-util/pkg"
 	"github.com/RyanBard/go-service-ex/internal/httpx"
 )
 

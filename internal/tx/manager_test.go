@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/RyanBard/go-service-ex/internal/logutil"
+	logutil "github.com/RyanBard/go-log-util/pkg"
 	"github.com/RyanBard/go-service-ex/internal/testutil"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
