@@ -3,6 +3,9 @@ module github.com/RyanBard/go-service-ex
 go 1.23.4
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/RyanBard/go-ctx-util v0.1.0
+	github.com/RyanBard/go-log-util v0.1.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-jwt/jwt/v4 v4.5.1
 	github.com/google/uuid v1.6.0
@@ -10,12 +13,9 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lib/pq v1.10.9
 	github.com/stretchr/testify v1.10.0
-	gopkg.in/DATA-DOG/go-sqlmock.v1 v1.3.0
 )
 
 require (
-	github.com/RyanBard/go-ctx-util v0.1.0 // indirect
-	github.com/RyanBard/go-log-util v0.1.0 // indirect
 	github.com/bytedance/sonic v1.12.5 // indirect
 	github.com/bytedance/sonic/loader v0.2.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
