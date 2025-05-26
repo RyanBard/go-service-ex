@@ -41,7 +41,7 @@ func (d dao) GetByID(ctx context.Context, id string) (u user.User, err error) {
 	err = d.db.GetContext(ctx, &u, getByIDQuery, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return u, NotFoundErr{ID: id}
+			return u, ErrNotFound{ID: id}
 		}
 		return u, err
 	}
@@ -100,7 +100,7 @@ func (d dao) Create(ctx context.Context, tx *sqlx.Tx, u user.User) (err error) {
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) {
 			if pqErr.Constraint == "users_email_uk" {
-				return EmailAlreadyInUseErr{Email: u.Email}
+				return ErrEmailAlreadyInUse{Email: u.Email}
 			}
 		}
 		return err
@@ -132,7 +132,7 @@ func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input user.User) (u user.U
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) {
 			if pqErr.Constraint == "users_email_uk" {
-				return u, EmailAlreadyInUseErr{Email: input.Email}
+				return u, ErrEmailAlreadyInUse{Email: input.Email}
 			}
 		}
 		return u, err
@@ -143,7 +143,7 @@ func (d dao) Update(ctx context.Context, tx *sqlx.Tx, input user.User) (u user.U
 		return u, err
 	}
 	if numRows == 0 {
-		return u, OptimisticLockErr{ID: input.ID, Version: input.Version}
+		return u, ErrOptimisticLock{ID: input.ID, Version: input.Version}
 	}
 	if numRows != 1 {
 		return u, fmt.Errorf("unexpected number of rows affected: %d", numRows)
@@ -173,7 +173,7 @@ func (d dao) Delete(ctx context.Context, tx *sqlx.Tx, u user.DeleteUser) (err er
 		return err
 	}
 	if numRows == 0 {
-		return OptimisticLockErr{ID: u.ID, Version: u.Version}
+		return ErrOptimisticLock{ID: u.ID, Version: u.Version}
 	}
 	if numRows != 1 {
 		return fmt.Errorf("unexpected number of rows affected: %d", numRows)

@@ -4,35 +4,35 @@ import (
 	"fmt"
 )
 
-type NameAlreadyInUseErr struct {
+type ErrNameAlreadyInUse struct {
 	Name string
 }
 
-func (err NameAlreadyInUseErr) Error() string {
+func (err ErrNameAlreadyInUse) Error() string {
 	return fmt.Sprintf("Cannot save org, name '%s' is already in use by another org", err.Name)
 }
 
-type CannotModifySysOrgErr struct {
+type ErrCannotModifySysOrg struct {
 	ID string
 }
 
-func (err CannotModifySysOrgErr) Error() string {
+func (err ErrCannotModifySysOrg) Error() string {
 	return fmt.Sprintf("Cannot modify system org: id=%s", err.ID)
 }
 
-type NotFoundErr struct {
+type ErrNotFound struct {
 	ID string
 }
 
-func (err NotFoundErr) Error() string {
+func (err ErrNotFound) Error() string {
 	return fmt.Sprintf("Org not found: id=%s", err.ID)
 }
 
-type OptimisticLockErr struct {
+type ErrOptimisticLock struct {
 	ID      string
 	Version int64
 }
 
-func (err OptimisticLockErr) Error() string {
+func (err ErrOptimisticLock) Error() string {
 	return fmt.Sprintf("Org was modified since last retrieved: id=%s version=%d", err.ID, err.Version)
 }

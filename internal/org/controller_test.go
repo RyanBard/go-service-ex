@@ -140,7 +140,7 @@ func TestCTRLGetByID_NotFoundError(t *testing.T) {
 		},
 	}
 
-	mockErr := NotFoundErr{ID: id}
+	mockErr := ErrNotFound{ID: id}
 	ms.On("GetByID", mock.Anything, id).Return(org.Org{}, mockErr)
 
 	c.GetByID(gc)
@@ -466,7 +466,7 @@ func TestCTRLSave_NotFoundError(t *testing.T) {
 	gc, w, err := ginCtxWithBody("/", o)
 	assert.Nil(t, err)
 
-	mockErr := NotFoundErr{ID: o.ID}
+	mockErr := ErrNotFound{ID: o.ID}
 	ms.On("Save", mock.Anything, o).Return(org.Org{}, mockErr)
 
 	c.Save(gc)
@@ -492,7 +492,7 @@ func TestCTRLSave_CannotModifySysOrgError(t *testing.T) {
 	gc, w, err := ginCtxWithBody("/", o)
 	assert.Nil(t, err)
 
-	mockErr := CannotModifySysOrgErr{ID: o.ID}
+	mockErr := ErrCannotModifySysOrg{ID: o.ID}
 	ms.On("Save", mock.Anything, o).Return(org.Org{}, mockErr)
 
 	c.Save(gc)
@@ -518,7 +518,7 @@ func TestCTRLSave_OptimisticLockError(t *testing.T) {
 	gc, w, err := ginCtxWithBody("/", o)
 	assert.Nil(t, err)
 
-	mockErr := OptimisticLockErr{ID: o.ID, Version: o.Version}
+	mockErr := ErrOptimisticLock{ID: o.ID, Version: o.Version}
 	ms.On("Save", mock.Anything, o).Return(org.Org{}, mockErr)
 
 	c.Save(gc)
@@ -544,7 +544,7 @@ func TestCTRLSave_NameAlreadyInUseError(t *testing.T) {
 	gc, w, err := ginCtxWithBody("/", o)
 	assert.Nil(t, err)
 
-	mockErr := NameAlreadyInUseErr{Name: o.Name}
+	mockErr := ErrNameAlreadyInUse{Name: o.Name}
 	ms.On("Save", mock.Anything, o).Return(org.Org{}, mockErr)
 
 	c.Save(gc)
@@ -705,7 +705,7 @@ func TestCTRLDelete_NotFoundErr(t *testing.T) {
 		},
 	}
 
-	mockErr := NotFoundErr{ID: o.ID}
+	mockErr := ErrNotFound{ID: o.ID}
 	ms.On("Delete", mock.Anything, o).Return(mockErr)
 
 	c.Delete(gc)
@@ -729,7 +729,7 @@ func TestCTRLDelete_CannotModifySysOrgErr(t *testing.T) {
 		},
 	}
 
-	mockErr := CannotModifySysOrgErr{ID: o.ID}
+	mockErr := ErrCannotModifySysOrg{ID: o.ID}
 	ms.On("Delete", mock.Anything, o).Return(mockErr)
 
 	c.Delete(gc)
@@ -753,7 +753,7 @@ func TestCTRLDelete_OptimisticLockError(t *testing.T) {
 		},
 	}
 
-	mockErr := OptimisticLockErr{ID: o.ID, Version: o.Version}
+	mockErr := ErrOptimisticLock{ID: o.ID, Version: o.Version}
 	ms.On("Delete", mock.Anything, o).Return(mockErr)
 
 	c.Delete(gc)

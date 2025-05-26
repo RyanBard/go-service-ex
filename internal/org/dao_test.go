@@ -92,7 +92,7 @@ func TestDAOGetByID_NotFoundErr(t *testing.T) {
 	_, err := d.GetByID(ctx, id)
 
 	assert.Nil(t, md.ExpectationsWereMet())
-	var expected NotFoundErr
+	var expected ErrNotFound
 	assert.True(t, errors.As(err, &expected))
 	assert.Contains(t, err.Error(), "not found")
 	assert.Contains(t, err.Error(), id)
@@ -229,7 +229,7 @@ func TestDAOCreate_NameUniqueConstraintErr(t *testing.T) {
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.NotNil(t, err)
-	var dupNameErr NameAlreadyInUseErr
+	var dupNameErr ErrNameAlreadyInUse
 	assert.True(t, errors.As(err, &dupNameErr))
 	assert.Contains(t, dupNameErr.Error(), "name")
 	assert.Contains(t, dupNameErr.Error(), "in use")
@@ -366,7 +366,7 @@ func TestDAOUpdate_OptimisticLockErr(t *testing.T) {
 	_, err = d.Update(ctx, tx, o)
 
 	assert.Nil(t, md.ExpectationsWereMet())
-	var expected OptimisticLockErr
+	var expected ErrOptimisticLock
 	assert.True(t, errors.As(err, &expected))
 	assert.Contains(t, err.Error(), "modified")
 	assert.Contains(t, err.Error(), id)
@@ -397,7 +397,7 @@ func TestDAOUpdate_NameAlreadyInUseErr(t *testing.T) {
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.NotNil(t, err)
-	var dupNameErr NameAlreadyInUseErr
+	var dupNameErr ErrNameAlreadyInUse
 	assert.True(t, errors.As(err, &dupNameErr))
 	assert.Contains(t, dupNameErr.Error(), "name")
 	assert.Contains(t, dupNameErr.Error(), "in use")
@@ -520,7 +520,7 @@ func TestDAODelete_OptimisticLockErr(t *testing.T) {
 	err = d.Delete(ctx, tx, o)
 
 	assert.Nil(t, md.ExpectationsWereMet())
-	var expected OptimisticLockErr
+	var expected ErrOptimisticLock
 	assert.True(t, errors.As(err, &expected))
 	assert.Contains(t, err.Error(), "modified")
 	assert.Contains(t, err.Error(), id)

@@ -237,7 +237,7 @@ func TestSVCSave_NoID_CannotAssociateSysOrg(t *testing.T) {
 	actual, err := s.Save(ctx, u)
 
 	assert.NotNil(t, err)
-	var orgErr CannotAssociateSysOrgErr
+	var orgErr ErrCannotAssociateSysOrg
 	assert.True(t, errors.As(err, &orgErr))
 	assert.Contains(t, err.Error(), "Cannot associate user")
 	assert.Contains(t, err.Error(), "system org")
@@ -363,7 +363,7 @@ func TestSVCSave_ID_CannotAssociateSysOrg(t *testing.T) {
 	actual, err := s.Save(ctx, u)
 
 	assert.NotNil(t, err)
-	var orgErr CannotAssociateSysOrgErr
+	var orgErr ErrCannotAssociateSysOrg
 	assert.True(t, errors.As(err, &orgErr))
 	assert.Contains(t, err.Error(), "Cannot associate user")
 	assert.Contains(t, err.Error(), "system org")
@@ -394,7 +394,7 @@ func TestSVCSave_ID_CannotModifySysUser(t *testing.T) {
 	actual, err := s.Save(ctx, u)
 
 	assert.NotNil(t, err)
-	var sysUserErr CannotModifySysUserErr
+	var sysUserErr ErrCannotModifySysUser
 	assert.True(t, errors.As(err, &sysUserErr))
 	assert.Contains(t, err.Error(), "Cannot modify")
 	assert.Contains(t, err.Error(), "system user")
@@ -417,7 +417,7 @@ func TestSVCSave_ID_UserNotFound(t *testing.T) {
 		Version:   1,
 	}
 
-	mockErr := NotFoundErr{ID: u.ID}
+	mockErr := ErrNotFound{ID: u.ID}
 	md.On("GetByID", ctx, u.ID).Return(user.User{}, mockErr)
 
 	actual, err := s.Save(ctx, u)
@@ -508,7 +508,7 @@ func TestSVCDelete_UserNotFound(t *testing.T) {
 		Version: 2,
 	}
 
-	mockErr := NotFoundErr{ID: u.ID}
+	mockErr := ErrNotFound{ID: u.ID}
 	md.On("GetByID", ctx, u.ID).Return(user.User{}, mockErr)
 
 	err := s.Delete(ctx, u)
@@ -529,7 +529,7 @@ func TestSVCDelete_CannotModifySysUser(t *testing.T) {
 
 	err := s.Delete(ctx, u)
 	assert.NotNil(t, err)
-	var sysUserErr CannotModifySysUserErr
+	var sysUserErr ErrCannotModifySysUser
 	assert.True(t, errors.As(err, &sysUserErr))
 	assert.Contains(t, err.Error(), "Cannot modify")
 	assert.Contains(t, err.Error(), "system user")

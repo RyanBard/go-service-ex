@@ -108,7 +108,7 @@ func TestDAOGetByID_NotFoundErr(t *testing.T) {
 	_, err := d.GetByID(ctx, id)
 
 	assert.Nil(t, md.ExpectationsWereMet())
-	var expected NotFoundErr
+	var expected ErrNotFound
 	assert.True(t, errors.As(err, &expected))
 	assert.Contains(t, err.Error(), "not found")
 	assert.Contains(t, err.Error(), id)
@@ -261,7 +261,7 @@ func TestDAOCreate_EmailALreadyInUseErr(t *testing.T) {
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.NotNil(t, err)
-	var dupEmailErr EmailAlreadyInUseErr
+	var dupEmailErr ErrEmailAlreadyInUse
 	assert.True(t, errors.As(err, &dupEmailErr))
 	assert.Contains(t, dupEmailErr.Error(), "email")
 	assert.Contains(t, dupEmailErr.Error(), "in use")
@@ -422,7 +422,7 @@ func TestDAOUpdate_OptimisticLockErr(t *testing.T) {
 	_, err = d.Update(ctx, tx, u)
 
 	assert.Nil(t, md.ExpectationsWereMet())
-	var expected OptimisticLockErr
+	var expected ErrOptimisticLock
 	assert.True(t, errors.As(err, &expected))
 	assert.Contains(t, err.Error(), "modified")
 	assert.Contains(t, err.Error(), id)
@@ -457,7 +457,7 @@ func TestDAOUpdate_EmailAlreadyInUseErr(t *testing.T) {
 
 	assert.Nil(t, md.ExpectationsWereMet())
 	assert.NotNil(t, err)
-	var dupEmailErr EmailAlreadyInUseErr
+	var dupEmailErr ErrEmailAlreadyInUse
 	assert.True(t, errors.As(err, &dupEmailErr))
 	assert.Contains(t, dupEmailErr.Error(), "email")
 	assert.Contains(t, dupEmailErr.Error(), "in use")
@@ -592,7 +592,7 @@ func TestDAODelete_OptimisticLockErr(t *testing.T) {
 	err = d.Delete(ctx, tx, u)
 
 	assert.Nil(t, md.ExpectationsWereMet())
-	var expected OptimisticLockErr
+	var expected ErrOptimisticLock
 	assert.True(t, errors.As(err, &expected))
 	assert.Contains(t, err.Error(), "modified")
 	assert.Contains(t, err.Error(), id)

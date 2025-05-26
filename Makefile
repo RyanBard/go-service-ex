@@ -24,6 +24,9 @@ integration-test:
 test:
 	go test ./...
 
+test-single:
+	go test -v ./... -run $(test_regex)
+
 coverage:
 	go test -cover ./...
 

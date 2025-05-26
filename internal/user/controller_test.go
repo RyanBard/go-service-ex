@@ -141,7 +141,7 @@ func TestCTRLGetByID_NotFoundError(t *testing.T) {
 		},
 	}
 
-	mockErr := NotFoundErr{ID: id}
+	mockErr := ErrNotFound{ID: id}
 	ms.On("GetByID", mock.Anything, id).Return(user.User{}, mockErr)
 
 	c.GetByID(gc)
@@ -283,7 +283,7 @@ func TestCTRLGetAllByOrgID_OrgNotFound(t *testing.T) {
 		},
 	}
 
-	mockErr := org.NotFoundErr{ID: orgID}
+	mockErr := org.ErrNotFound{ID: orgID}
 	ms.On("GetAllByOrgID", mock.Anything, orgID).Return([]user.User{}, mockErr)
 
 	c.GetAllByOrgID(gc)
@@ -530,7 +530,7 @@ func TestCTRLSave_NotFoundError(t *testing.T) {
 	gc, w, err := ginCtxWithBody("/", u)
 	assert.Nil(t, err)
 
-	mockErr := NotFoundErr{ID: u.ID}
+	mockErr := ErrNotFound{ID: u.ID}
 	ms.On("Save", mock.Anything, u).Return(user.User{}, mockErr)
 
 	c.Save(gc)
@@ -557,7 +557,7 @@ func TestCTRLSave_CannotModifySysUserError(t *testing.T) {
 	gc, w, err := ginCtxWithBody("/", u)
 	assert.Nil(t, err)
 
-	mockErr := CannotModifySysUserErr{ID: u.ID}
+	mockErr := ErrCannotModifySysUser{ID: u.ID}
 	ms.On("Save", mock.Anything, u).Return(user.User{}, mockErr)
 
 	c.Save(gc)
@@ -584,7 +584,7 @@ func TestCTRLSave_CannotAssociateSysOrgError(t *testing.T) {
 	gc, w, err := ginCtxWithBody("/", u)
 	assert.Nil(t, err)
 
-	mockErr := CannotAssociateSysOrgErr{UserID: u.ID, OrgID: u.OrgID}
+	mockErr := ErrCannotAssociateSysOrg{UserID: u.ID, OrgID: u.OrgID}
 	ms.On("Save", mock.Anything, u).Return(user.User{}, mockErr)
 
 	c.Save(gc)
@@ -611,7 +611,7 @@ func TestCTRLSave_OptimisticLockError(t *testing.T) {
 	gc, w, err := ginCtxWithBody("/", u)
 	assert.Nil(t, err)
 
-	mockErr := OptimisticLockErr{ID: u.ID, Version: u.Version}
+	mockErr := ErrOptimisticLock{ID: u.ID, Version: u.Version}
 	ms.On("Save", mock.Anything, u).Return(user.User{}, mockErr)
 
 	c.Save(gc)
@@ -638,7 +638,7 @@ func TestCTRLSave_EmailAlreadyInUseError(t *testing.T) {
 	gc, w, err := ginCtxWithBody("/", u)
 	assert.Nil(t, err)
 
-	mockErr := EmailAlreadyInUseErr{Email: u.Email}
+	mockErr := ErrEmailAlreadyInUse{Email: u.Email}
 	ms.On("Save", mock.Anything, u).Return(user.User{}, mockErr)
 
 	c.Save(gc)
@@ -665,7 +665,7 @@ func TestCTRLSave_OrgNotFoundError(t *testing.T) {
 	gc, w, err := ginCtxWithBody("/", u)
 	assert.Nil(t, err)
 
-	mockErr := org.NotFoundErr{ID: u.OrgID}
+	mockErr := org.ErrNotFound{ID: u.OrgID}
 	ms.On("Save", mock.Anything, u).Return(user.User{}, mockErr)
 
 	c.Save(gc)
@@ -827,7 +827,7 @@ func TestCTRLDelete_NotFoundError(t *testing.T) {
 		},
 	}
 
-	mockErr := NotFoundErr{ID: u.ID}
+	mockErr := ErrNotFound{ID: u.ID}
 	ms.On("Delete", mock.Anything, u).Return(mockErr)
 
 	c.Delete(gc)
@@ -851,7 +851,7 @@ func TestCTRLDelete_CannotModifySysUserError(t *testing.T) {
 		},
 	}
 
-	mockErr := CannotModifySysUserErr{ID: u.ID}
+	mockErr := ErrCannotModifySysUser{ID: u.ID}
 	ms.On("Delete", mock.Anything, u).Return(mockErr)
 
 	c.Delete(gc)
@@ -875,7 +875,7 @@ func TestCTRLDelete_OptimisticLockError(t *testing.T) {
 		},
 	}
 
-	mockErr := OptimisticLockErr{ID: u.ID, Version: u.Version}
+	mockErr := ErrOptimisticLock{ID: u.ID, Version: u.Version}
 	ms.On("Delete", mock.Anything, u).Return(mockErr)
 
 	c.Delete(gc)

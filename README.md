@@ -50,3 +50,4 @@ make integration-test
 * branch coverage: https://github.com/junhwi/gobco/
 * add some example grpc/protobuf code
 * flavor the errors with fmt.Errof wrapping
+* TODO: did you connection pool your db connections?

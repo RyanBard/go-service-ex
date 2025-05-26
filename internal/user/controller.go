@@ -45,7 +45,7 @@ func (ctr ctrl) GetByID(c *gin.Context) {
 	u, err := ctr.service.GetByID(ctx, id)
 	if err != nil {
 		var statusCode int
-		var notFound NotFoundErr
+		var notFound ErrNotFound
 		if errors.As(err, &notFound) {
 			log.With(logutil.LogAttrError(err)).Warn("resource not found")
 			statusCode = http.StatusNotFound
@@ -91,7 +91,7 @@ func (ctr ctrl) GetAllByOrgID(c *gin.Context) {
 	u, err := ctr.service.GetAllByOrgID(ctx, orgID)
 	if err != nil {
 		var statusCode int
-		var orgNotFound org.NotFoundErr
+		var orgNotFound org.ErrNotFound
 		if errors.As(err, &orgNotFound) {
 			log.With(logutil.LogAttrError(err)).Warn("org resource not found")
 			statusCode = http.StatusNotFound
@@ -130,12 +130,12 @@ func (ctr ctrl) Save(c *gin.Context) {
 	u, err := ctr.service.Save(ctx, u)
 	if err != nil {
 		var statusCode int
-		var notFound NotFoundErr
-		var modSysUser CannotModifySysUserErr
-		var assocSysOrg CannotAssociateSysOrgErr
-		var orgNotFound org.NotFoundErr
-		var optLock OptimisticLockErr
-		var dupEmail EmailAlreadyInUseErr
+		var notFound ErrNotFound
+		var modSysUser ErrCannotModifySysUser
+		var assocSysOrg ErrCannotAssociateSysOrg
+		var orgNotFound org.ErrNotFound
+		var optLock ErrOptimisticLock
+		var dupEmail ErrEmailAlreadyInUse
 		if errors.As(err, &notFound) {
 			log.With(logutil.LogAttrError(err)).Warn("resource not found")
 			statusCode = http.StatusNotFound
@@ -189,9 +189,9 @@ func (ctr ctrl) Delete(c *gin.Context) {
 	log.Debug("body processed, about to call service")
 	if err := ctr.service.Delete(ctx, u); err != nil {
 		var statusCode int
-		var notFound NotFoundErr
-		var modSysUser CannotModifySysUserErr
-		var optLock OptimisticLockErr
+		var notFound ErrNotFound
+		var modSysUser ErrCannotModifySysUser
+		var optLock ErrOptimisticLock
 		if errors.As(err, &notFound) {
 			log.With(logutil.LogAttrError(err)).Warn("resource already gone, not deleting")
 			c.Status(http.StatusNoContent)

@@ -96,7 +96,7 @@ func (s service) Save(ctx context.Context, o org.Org) (out org.Org, err error) {
 			return out, err
 		}
 		if orgInDB.IsSystem {
-			err = CannotModifySysOrgErr{ID: o.ID}
+			err = ErrCannotModifySysOrg{ID: o.ID}
 			return out, err
 		}
 	}
@@ -137,7 +137,7 @@ func (s service) Delete(ctx context.Context, o org.DeleteOrg) error {
 		return err
 	}
 	if orgInDB.IsSystem {
-		err = CannotModifySysOrgErr{ID: o.ID}
+		err = ErrCannotModifySysOrg{ID: o.ID}
 		return err
 	}
 	err = s.txMGR.Do(ctx, nil, func(tx *sqlx.Tx) error {

@@ -108,7 +108,7 @@ func (s service) Save(ctx context.Context, u user.User) (out user.User, err erro
 			return out, err
 		}
 		if userInDB.IsSystem {
-			err = CannotModifySysUserErr{ID: u.ID}
+			err = ErrCannotModifySysUser{ID: u.ID}
 			return out, err
 		}
 	}
@@ -117,7 +117,7 @@ func (s service) Save(ctx context.Context, u user.User) (out user.User, err erro
 		return out, err
 	}
 	if orgInDB.IsSystem {
-		err = CannotAssociateSysOrgErr{UserID: u.ID, OrgID: u.OrgID}
+		err = ErrCannotAssociateSysOrg{UserID: u.ID, OrgID: u.OrgID}
 		return out, err
 	}
 	err = s.txMGR.Do(ctx, nil, func(tx *sqlx.Tx) error {
@@ -157,7 +157,7 @@ func (s service) Delete(ctx context.Context, u user.DeleteUser) error {
 		return err
 	}
 	if userInDB.IsSystem {
-		err = CannotModifySysUserErr{ID: u.ID}
+		err = ErrCannotModifySysUser{ID: u.ID}
 		return err
 	}
 	err = s.txMGR.Do(ctx, nil, func(tx *sqlx.Tx) error {

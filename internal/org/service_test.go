@@ -322,7 +322,7 @@ func TestSVCSave_ID_OrgNotFound(t *testing.T) {
 	now := time.UnixMilli(200)
 	mt.On("Now").Return(now)
 
-	mockErr := NotFoundErr{
+	mockErr := ErrNotFound{
 		ID: o.ID,
 	}
 	md.On("GetByID", ctx, o.ID).Return(org.Org{}, mockErr)
@@ -356,7 +356,7 @@ func TestSVCSave_ID_SystemOrgNotAllowed(t *testing.T) {
 	actual, err := s.Save(ctx, o)
 
 	assert.NotNil(t, err)
-	var sysOrgErr CannotModifySysOrgErr
+	var sysOrgErr ErrCannotModifySysOrg
 	assert.True(t, errors.As(err, &sysOrgErr))
 	assert.Contains(t, err.Error(), "Cannot modify")
 	assert.Contains(t, err.Error(), "system org")
@@ -432,7 +432,7 @@ func TestSVCDelete_OrgNotFound(t *testing.T) {
 		Version: 2,
 	}
 
-	mockErr := NotFoundErr{
+	mockErr := ErrNotFound{
 		ID: o.ID,
 	}
 	md.On("GetByID", ctx, o.ID).Return(org.Org{}, mockErr)
@@ -455,7 +455,7 @@ func TestSVCDelete_SystemOrgNotAllowed(t *testing.T) {
 
 	err := s.Delete(ctx, o)
 	assert.NotNil(t, err)
-	var sysOrgErr CannotModifySysOrgErr
+	var sysOrgErr ErrCannotModifySysOrg
 	assert.True(t, errors.As(err, &sysOrgErr))
 	assert.Contains(t, err.Error(), "Cannot modify")
 	assert.Contains(t, err.Error(), "system org")
