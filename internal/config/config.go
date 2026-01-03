@@ -26,6 +26,8 @@ type DBConfig struct {
 	DBName       string        `envconfig:"DB_NAME" default:"postgres"`
 	SSLMode      string        `envconfig:"DB_SSL_MODE" default:"disable"`
 	QueryTimeout time.Duration `envconfig:"DB_QUERY_TIMEOUT" default:"30s"`
+	MaxIdleConns int           `envconfig:"DB_MAX_IDLE_CONNS" default:"2"`
+	MaxOpenConns int           `envconfig:"DB_MAX_OPEN_CONNS" default:"20"`
 }
 
 func LoadConfig() (c Config, err error) {

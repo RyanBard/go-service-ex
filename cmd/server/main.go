@@ -59,6 +59,8 @@ func main() {
 			cfg.DB.SSLMode,
 		),
 	)
+	dbx.SetMaxIdleConns(cfg.DB.MaxIdleConns)
+	dbx.SetMaxOpenConns(cfg.DB.MaxOpenConns)
 
 	txMGR := tx.NewTXMGR(log, dbx)
 
